@@ -1,14 +1,16 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useLoginForm } from "@/hooks/login-form";
+import { useRegisterForm } from "@/hooks/use-register-form";
 import { ComponentProps } from "react";
+import Link from "next/link";
+import { RoleOption } from "@/lib/roles";
 
-export function LoginForm({
+export function RegisterForm({
   className,
   ...props
 }: ComponentProps<"div">) {
@@ -20,7 +22,11 @@ export function LoginForm({
     isPending,
     apiError,
     onSubmit,
-  } = useLoginForm();
+    roles,
+    isRegistering,
+  } = useRegisterForm();
+
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
@@ -28,9 +34,9 @@ export function LoginForm({
           <form className="p-6 md:p-8" onSubmit={handleSubmit(onSubmit)}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="text-2xl font-bold">Create an account</h1>
                 <p className="text-muted-foreground text-balance">
-                  Login to your Acme Inc account
+                  Join our community!
                 </p>
               </div>
               <div className="grid gap-3">
@@ -49,15 +55,7 @@ export function LoginForm({
                 )}
               </div>
               <div className="grid gap-3">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto text-sm underline-offset-2 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -70,11 +68,53 @@ export function LoginForm({
                   </p>
                 )}
               </div>
+              <div className="grid gap-3">
+                <Label htmlFor="confirm_password">Confirm Password</Label>
+                <Input
+                  id="confirm_password"
+                  type="password"
+                  required
+                  {...register("confirm_password")}
+                />
+                {errors.confirm_password && (
+                  <p className="text-red-500 text-sm">
+                    {errors.confirm_password.message}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-3">
+                <Label htmlFor="role">Role</Label>
+                <select
+                  id="role"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  required
+                  {...register("role")}
+                >
+                  <option value="">Select a role</option>
+                  {roles.map((option: RoleOption) => (
+                    <option key={option.key} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.role && (
+                  <p className="text-red-500 text-sm">
+                    {errors.role.message}
+                  </p>
+                )}
+              </div>
+
               {apiError && (
                 <div className="text-red-500 text-sm">{apiError}</div>
               )}
-              <Button type="submit" className="w-full" disabled={ isPending || isSubmitting}>
-                { isPending  ? "Logging in..." : "Login"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isPending || isSubmitting || isRegistering}
+              >
+                {isRegistering
+                  ? "Creating account..."
+                  : "Create Account"}
               </Button>
               <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                 <span className="bg-card text-muted-foreground relative z-10 px-2">
@@ -111,10 +151,10 @@ export function LoginForm({
                 </Button>
               </div>
               <div className="text-center text-sm">
-                Don&apos;t have an account?{" "}
-                <a href="/register" className="underline underline-offset-4">
-                  Sign up
-                </a>
+                Already have an account?{" "}
+                <Link href="/login" className="underline underline-offset-4">
+                  Login
+                </Link>
               </div>
             </div>
           </form>
