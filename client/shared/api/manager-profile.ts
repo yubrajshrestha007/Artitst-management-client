@@ -1,8 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/api/manager-profile.ts
 import { ManagerProfile } from "@/types/auth";
 import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
-import { DecodedToken } from "@/types/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -32,7 +30,7 @@ const apiRequest = async (
   if (!response.ok) {
     try {
       const errorData = await response.json();
-      throw new Error(errorData.message || "API request failed");
+      throw new Error(errorData.message || errorData.detail || "API request failed");
     } catch (error) {
       throw new Error("API request failed");
     }

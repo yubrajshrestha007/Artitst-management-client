@@ -50,6 +50,7 @@ export const useMyProfileQuery = (isAuthenticated: boolean) => {
     queryFn: fetchMyProfile,
     enabled: isAuthenticated, // Only fetch if logged in
     staleTime: Infinity, // Data is always fresh
+    cacheTime: Infinity,
   });
 };
 

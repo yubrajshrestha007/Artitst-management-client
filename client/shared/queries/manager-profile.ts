@@ -13,6 +13,9 @@ import {
   UseUpdateManagerProfileMutationOptions,
 } from "@/types/auth";
 import { useInvalidateProfile } from "./profiles";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+import { DecodedToken } from "@/types/auth";
 
 export const useMyManagerProfileQuery = () => {
   const { mutate: invalidateProfile } = useInvalidateProfile();
@@ -22,9 +25,9 @@ export const useMyManagerProfileQuery = () => {
       try {
         const profile = await fetchMyManagerProfile();
         return profile;
-      } catch (error) {
-        console.error("Error fetching my manager profile:", error);
-        return null;
+      } catch {
+          console.error("Error fetching my manager profile");
+          throw new Error("Error fetching my manager profile");
       }
     },
     staleTime: Infinity,
@@ -35,30 +38,38 @@ export const useMyManagerProfileQuery = () => {
 };
 
 const fetchMyManagerProfile = async (): Promise<ManagerProfile | null> => {
+  const access = Cookies.get("access");
+  if (!access) {
+    throw new Error("Access token not found");
+  }
+  const decodedToken: DecodedToken = jwtDecode(access);
+  const userId = decodedToken.user_id;
+  if (!userId) {
+    throw new Error("User ID not found in access token");
+  }
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}manager-profile/my-profile/`,
+    `${process.env.NEXT_PUBLIC_API_URL}manager-by-user/${userId}/`,
     {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${access}`,
       },
     }
   );
 
   if (!response.ok) {
-    if (response.status === 404) {
+    if (response.status === 404 || response.status === 204) {
       return null;
     }
     try {
       const errorData = await response.json();
-      throw new Error(errorData.message || errorData.detail || "API request failed");
+      throw new Error(
+        errorData.message || errorData.detail || "API request failed"
+      );
     } catch (error) {
       throw new Error("API request failed");
     }
-  }
-
-  if (response.status === 204) {
-    return null; // Return null for 204 No Content
   }
 
   return response.json();
@@ -88,7 +99,12 @@ export const useCreateManagerProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError,
+    onError: (error: any) => {
+      console.error("Error creating manager profile:", error);
+      if (onError) {
+        onError(error);
+      }
+    },
   });
 };
 
