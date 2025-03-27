@@ -12,14 +12,17 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
   const { data: usersData } = useUsersQuery();
   const currentUserRole = usersData?.currentUserRole || "";
   const [formData, setFormData] = useState<Partial<User>>({});
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      setIsEditMode(true);
     } else {
       setFormData({
         role: currentUserRole === "artist_manager" ? "artist" : "",
       });
+      setIsEditMode(false);
     }
   }, [initialData, currentUserRole]);
 
@@ -31,7 +34,21 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Include all data in the dataToSubmit object
+    const dataToSubmit: Partial<User> = { ...formData };
+
+    // Remove password and confirm_password if in edit mode
+    if (isEditMode) {
+      delete dataToSubmit.password;
+      delete dataToSubmit.confirm_password;
+    }
+
+    onSubmit(dataToSubmit);
+  };
+
+  // Helper function to check if the user being edited is an artist
+  const isEditingArtist = () => {
+    return isEditMode && formData.role === "artist";
   };
 
   return (
@@ -58,29 +75,57 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
           value={formData.email || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          readOnly={isEditMode}
         />
       </div>
+      {!isEditMode && (
+        <>
+          <div>
+            <label htmlFor="name">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password || ""}
+              onChange={handleChange}
+              className="border border-gray-300 rounded-md p-2 w-full"
+            />
+          </div>
+          <div>
+            <label htmlFor="name">confirm Password</label>
+            <input
+              type="password"
+              id="confirm_password"
+              name="confirm_password"
+              value={formData.confirm_password || ""}
+              onChange={handleChange}
+              className="border border-gray-300 rounded-md p-2 w-full"
+            />
+          </div>
+        </>
+      )}
       <div>
-        <label htmlFor="name">Password</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          value={formData.password || ""}
+        <label htmlFor="is_active">Status</label>
+        <select
+          id="is_active"
+          name="is_active"
+          value={
+            formData.is_active !== undefined
+              ? formData.is_active.toString()
+              : ""
+          }
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-        />
-      </div>
-      <div>
-        <label htmlFor="name">confirm Password</label>
-        <input
-          type="password"
-          id="confirm_password"
-          name="confirm_password"
-          value={formData.confirm_password || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full"
-        />
+          // Updated disabled condition
+          disabled={
+            isEditMode &&
+            currentUserRole === "artist_manager" &&
+            !isEditingArtist()
+          }
+        >
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
       </div>
       <div>
         <label htmlFor="role">Role</label>
@@ -90,10 +135,15 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
           value={formData.role || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          disabled={isEditMode && currentUserRole === "artist_manager"}
         >
           <option value="">Select a role</option>
           <option value="artist">Artist</option>
-          <option value="artist_manager">Artist Manager</option>
+          {currentUserRole === "super_admin" && (
+            <>
+              <option value="artist_manager">Artist Manager</option>
+            </>
+          )}
         </select>
       </div>
       <button

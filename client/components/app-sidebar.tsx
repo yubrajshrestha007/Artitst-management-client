@@ -7,6 +7,7 @@ import {
   Settings2,
   SquareTerminal,
   LogOut,
+  User,
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -85,11 +86,22 @@ export function AppSidebar({
               Dashboard
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {role === "artist" && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => router.push("/artist")}
+                isActive={pathname === "/artist"}
+              >
+                <User />
+                Artist Profile
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           {role === "artist_manager" && (
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => router.push("manager/")}
-                isActive={pathname === "manager/"}
+                onClick={() => router.push("/manager")}
+                isActive={pathname === "/manager"}
               >
                 <Settings2 />
                 Manager Profile

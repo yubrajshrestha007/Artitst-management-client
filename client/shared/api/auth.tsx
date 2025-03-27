@@ -8,12 +8,20 @@ import {
   RegisterResponse,
 } from "@/types/auth";
 import Cookies from "js-cookie";
+import { toast } from "sonner";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 if (!BASE_URL) {
   throw new Error("NEXT_PUBLIC_BASE_URL is not defined in .env.local");
 }
+
+const handleApiError = async (response: Response) => {
+  const errorData = await response.json();
+  const errorMessage = errorData.detail || "An error occurred";
+  toast.error(errorMessage); // Show error toast
+  throw new Error(errorMessage);
+};
 
 export const loginApi = async (data: LoginSchema): Promise<LoginResponse> => {
   const response = await fetch(`${BASE_URL}login/`, {
@@ -25,8 +33,7 @@ export const loginApi = async (data: LoginSchema): Promise<LoginResponse> => {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Login failed");
+    return handleApiError(response);
   }
   const responseData = await response.json();
   return responseData;
@@ -44,8 +51,7 @@ export const registerApi = async (
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Registration failed");
+    return handleApiError(response);
   }
 
   return response.json();
@@ -61,12 +67,14 @@ export const useLogoutMutation = () => {
       Cookies.remove("refresh");
       Cookies.remove("role");
 
-
       return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
       router.push("/login");
+    },
+    onError: (error) => {
+      toast.error(`Logout failed: ${error.message}`);
     },
   });
 };
