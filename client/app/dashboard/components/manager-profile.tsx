@@ -29,7 +29,7 @@ export default function ManagerProfileForm({
   const currentUserId = usersData?.currentUserId || null; // Get the current user ID
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
-      toast.error("Manager profile deleted successfully");
+      toast.success("Manager profile deleted successfully");
       // Redirect or update UI as needed
     },
     onError: (error) => {

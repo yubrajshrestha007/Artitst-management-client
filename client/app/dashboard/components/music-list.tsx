@@ -37,7 +37,7 @@ const MusicList = () => {
     release_date: null,
     created_by_id: "",
   });
-  const profile = useMyProfileQuery(true) as { role?: string } | null;
+  const { data: profile, isLoading: isProfileLoading } = useMyProfileQuery(true);
 
   const handleCreateMusic = () => {
     createMusic(formData);
@@ -88,7 +88,6 @@ const MusicList = () => {
         genre: music.genre,
         release_date: music.release_date,
         created_by_id: music.created_by_id,
-
       });
     } else {
       setFormData({
@@ -116,7 +115,7 @@ const MusicList = () => {
     }));
   };
 
-  if (isLoading) {
+  if (isLoading || isProfileLoading) {
     return <div>Loading...</div>;
   }
 
@@ -124,9 +123,7 @@ const MusicList = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-700">Music List</h2>
-        {profile?.role === "artist" && (
           <Button onClick={() => handleOpenModal()}>Create Music</Button>
-        )}
       </div>
       <Table>
         <TableHeader>
@@ -209,7 +206,7 @@ const MusicList = () => {
                 />
                 <label htmlFor="release_date">Release Date</label>
                 <Input
-                  type="date"
+                  type="datetime-local"
                   id="release_date"
                   name="release_date"
                   value={formData.release_date || ""}
@@ -231,9 +228,7 @@ const MusicList = () => {
                 >
                   {selectedMusic ? "Update" : "Create"}
                 </Button>
-
               </div>
-
             </div>
           </div>
         </div>

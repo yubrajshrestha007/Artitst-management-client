@@ -33,7 +33,7 @@ export default function UserManagementTable({
   currentUserRole,
 }: UserManagementTableProps) {
   const queryClient = useQueryClient();
-  const { data: usersData } = useUsersQuery();
+  const { data: usersData, isLoading: isUsersLoading } = useUsersQuery();
   const createUserMutation = useCreateUserMutation();
   const updateUserMutation = useUpdateUserMutation();
   const deleteUserMutation = useDeleteUserMutation();
@@ -127,6 +127,9 @@ export default function UserManagementTable({
     setEditUser(null);
     setIsUserModalOpen(true);
   };
+  if (isUsersLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <>
