@@ -14,13 +14,17 @@ const fetchMyProfile = async (): Promise<Profile> => {
   }
   const decodedToken: DecodedToken = jwtDecode(access);
   const role = decodedToken.role;
-  const userId = decodedToken.user_id;
+  const userId = decodedToken.user_id; // Extract user_id
 
   if (!userId) {
-    throw new Error("User ID not found in access token");
+    throw new Error("User ID not found in token");
   }
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${role === "artist" ? "artists" : "manager-profile"}/by-user/${userId}/`, {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}${
+    role === "artist" ? `artists/by-user/${userId}/` : `manager-by-user/${userId}/`
+  }`;
+
+  const response = await fetch(url, { // Use the constructed URL
     method: "GET",
     headers: {
       "Content-Type": "application/json",

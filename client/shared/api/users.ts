@@ -1,6 +1,7 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/api/users.ts
 import { User, UserQueryResponse, DecodedToken } from "@/types/auth";
 import { jwtDecode, JwtPayload } from "jwt-decode";
+import Cookies from "js-cookie";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 

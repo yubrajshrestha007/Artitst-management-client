@@ -5,10 +5,24 @@ import {
   deleteArtistProfile,
   fetchArtistProfile,
   updateArtistProfile,
+  fetchArtistProfileByUserId, // Import the new function
 } from "@/shared/api/artist-profile";
-import { ArtistProfile, UseCreateArtistProfileMutationOptions, UseDeleteArtistProfileMutationOptions, UseUpdateArtistProfileMutationOptions } from "@/types/auth";
+import {
+  ArtistProfile,
+  UseCreateArtistProfileMutationOptions,
+  UseDeleteArtistProfileMutationOptions,
+  UseUpdateArtistProfileMutationOptions,
+} from "@/types/auth";
 import { useInvalidateProfile } from "./profiles";
 
+// New query to fetch artist profile by user ID
+export const useArtistProfileByUserIdQuery = (userId: string) => {
+  return useQuery<ArtistProfile | null, Error>({
+    queryKey: ["artist-profile-by-user", userId],
+    queryFn: () => fetchArtistProfileByUserId(userId),
+    enabled: !!userId,
+  });
+};
 
 export const useArtistProfileQuery = (id: string) => {
   return useQuery<ArtistProfile, Error>({
@@ -17,7 +31,6 @@ export const useArtistProfileQuery = (id: string) => {
     enabled: !!id,
   });
 };
-
 
 export const useCreateArtistProfileMutation = ({
   onSuccess,
@@ -29,6 +42,7 @@ export const useCreateArtistProfileMutation = ({
     mutationFn: createArtistProfile,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
@@ -48,6 +62,7 @@ export const useUpdateArtistProfileMutation = ({
     mutationFn: updateArtistProfile,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
@@ -67,6 +82,7 @@ export const useDeleteArtistProfileMutation = ({
     mutationFn: deleteArtistProfile,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
       invalidateProfile();
       if (onSuccess) {
         onSuccess();

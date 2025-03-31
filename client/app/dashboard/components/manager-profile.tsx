@@ -1,7 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/manager-profile.tsx
 import { useState, useEffect } from "react";
 import { ManagerProfile } from "@/shared/queries/manager-profile";
-import { useParams } from "next/navigation";
 import { useUsersQuery } from "@/shared/queries/users";
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
@@ -25,18 +24,16 @@ export default function ManagerProfileForm({
     date_of_birth: null,
     user_id: null,
   });
-  const params = useParams();
-  const id = params.profile;
+
   const { data: usersData } = useUsersQuery();
-  const currentUserEmail = usersData?.currentUserEmail || "";
-  const currentUserId = usersData?.currentUserId || null;
+  const currentUserEmail = usersData?.user?.email || "";
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
-      toast.success("Manager profile deleted successfully");
+      toast.error("Manager profile deleted successfully");
       // Redirect or update UI as needed
     },
     onError: (error) => {
-      toast.error(`Error deleting manager profile: ${error.message}`);
+      toast.error(`Error deleting manager profile: ${error}`);
     },
   });
 
@@ -46,11 +43,10 @@ export default function ManagerProfileForm({
     } else {
       setFormData((prevFormData) => ({
         ...prevFormData,
-        company_email: currentUserEmail,
-        user_id: currentUserId,
+        company_email: prevFormData.company_email || currentUserEmail,
       }));
     }
-  }, [initialData, currentUserEmail, currentUserId]);
+  }, [initialData, currentUserEmail]);
 
   const handleChange = (
     e: React.ChangeEvent<

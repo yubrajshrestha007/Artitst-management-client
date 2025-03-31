@@ -50,7 +50,7 @@ export const fetchManagerProfile = async (id: string): Promise<ManagerProfile> =
 export const createManagerProfile = async (
   data: ManagerProfile
 ): Promise<ManagerProfile> => {
-  return apiRequest("manager-profile/", "POST", data);
+  return apiRequest("manager-profile/create/", "POST", data);
 };
 
 export const updateManagerProfile = async ({

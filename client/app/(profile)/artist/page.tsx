@@ -76,6 +76,9 @@ export default function ArtistProfilePage() {
     );
   }
   const access = Cookies.get("access");
+  // if (!access) {
+  //   return <div>Access token not found</div>;
+  // }
   if (!access) {
     return <div>Access token not found</div>;
   }

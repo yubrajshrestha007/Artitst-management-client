@@ -2,9 +2,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtDecode, JwtPayload } from "jwt-decode";
-import { DecodedToken } from "../types/auth"; // Assuming you have this type defined
+import { DecodedToken } from "./types/auth";
 
-export function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const access = request.cookies.get("access")?.value;
 
@@ -24,7 +24,7 @@ export function middleware(request: NextRequest) {
       const decodedToken: JwtPayload & DecodedToken = jwtDecode(access);
       const currentUserRole = decodedToken.role || "";
 
-      if (currentUserRole !== "super_admin") {
+      if (currentUserRole !== "super_admin" && currentUserRole !== "artist_manager" && currentUserRole !== "artist") {
         // Redirect to /permission-denied if not super_admin
         return NextResponse.redirect(new URL("/permission-denied", request.url));
       }

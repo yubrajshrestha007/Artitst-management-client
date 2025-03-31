@@ -1,40 +1,36 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/queries/manager-profile.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  createManagerProfile,
-  deleteManagerProfile,
-  fetchManagerProfile,
-  updateManagerProfile,
-} from "@/shared/api/manager-profile";
-import {
-  ManagerProfile,
-  UseCreateManagerProfileMutationOptions,
-  UseDeleteManagerProfileMutationOptions,
-  UseUpdateManagerProfileMutationOptions,
-} from "@/types/auth";
-import { useInvalidateProfile } from "./profiles";
+import { ManagerProfile, UseCreateManagerProfileMutationOptions, UseDeleteManagerProfileMutationOptions, UseUpdateManagerProfileMutationOptions } from "@/types/auth";
+import { toast } from "sonner";
 import Cookies from "js-cookie";
+import { fetchManagerProfile as fetchManagerProfileApi, createManagerProfile as createManagerProfileApi, updateManagerProfile as updateManagerProfileApi, deleteManagerProfile as deleteManagerProfileApi } from "../api/manager-profile";
+import { useInvalidateProfile } from "./profiles";
 import { jwtDecode } from "jwt-decode";
 import { DecodedToken } from "@/types/auth";
 
-export const useMyManagerProfileQuery = () => {
-  const { mutate: invalidateProfile } = useInvalidateProfile();
-  return useQuery<ManagerProfile | null, Error>({
-    queryKey: ["my-manager-profile"],
-    queryFn: async () => {
-      try {
-        const profile = await fetchMyManagerProfile();
-        return profile;
-      } catch {
-          console.error("Error fetching my manager profile");
-          throw new Error("Error fetching my manager profile");
-      }
-    },
-    staleTime: Infinity,
-    onSuccess: () => {
-      invalidateProfile();
-    },
-  });
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!BASE_URL) {
+  throw new Error("NEXT_PUBLIC_BASE_URL is not defined in .env.local");
+}
+
+// Helper function to handle API errors and non-200 responses
+const handleApiError = async (response: Response) => {
+  if (response.status === 404) {
+    return null; // Treat 404 as no profile found, not an error
+  }
+  const errorData = await response.json();
+  const errorMessage = errorData.detail || errorData.message || "An error occurred";
+  toast.error(errorMessage); // Show error toast
+  throw new Error(errorMessage);
+};
+
+const getHeaders = () => {
+  const accessToken = Cookies.get("access");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
 };
 
 const fetchMyManagerProfile = async (): Promise<ManagerProfile | null> => {
@@ -44,42 +40,41 @@ const fetchMyManagerProfile = async (): Promise<ManagerProfile | null> => {
   }
   const decodedToken: DecodedToken = jwtDecode(access);
   const userId = decodedToken.user_id;
-  if (!userId) {
-    throw new Error("User ID not found in access token");
-  }
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}manager-by-user/${userId}/`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${access}`,
-      },
-    }
-  );
-
+  const response = await fetch(`${BASE_URL}manager-by-user/${userId}`, {
+    headers: getHeaders(),
+  });
   if (!response.ok) {
-    if (response.status === 404 || response.status === 204) {
-      return null;
-    }
-    try {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.message || errorData.detail || "API request failed"
-      );
-    } catch (error) {
-      throw new Error("API request failed");
-    }
+    return handleApiError(response);
   }
+  if (response.status === 204) {
+    return null;
+  }
+  return response.json();
+};
 
+const fetchManagers = async (): Promise<{ managers: ManagerProfile[] }> => {
+  const response = await fetch(`${BASE_URL}manager-profile/all/`, {
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    return handleApiError(response);
+  }
   return response.json();
 };
 
 export const useManagerProfileQuery = (id: string) => {
-  return useQuery<ManagerProfile, Error>({
-    queryKey: ["manager-profile", id],
-    queryFn: () => fetchManagerProfile(id),
+  return useQuery<ManagerProfile | null, Error>({
+    queryKey: ["managerProfile", id],
+    queryFn: () => fetchManagerProfileApi(id),
     enabled: !!id,
+  });
+};
+
+export const useMyManagerProfileQuery = () => {
+  return useQuery<ManagerProfile | null, Error>({
+    queryKey: ["myManagerProfile"],
+    queryFn: fetchMyManagerProfile,
+    retry: 1, // Retry only once
   });
 };
 
@@ -90,21 +85,15 @@ export const useCreateManagerProfileMutation = ({
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
-    mutationFn: createManagerProfile,
+    mutationFn: createManagerProfileApi,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["manager-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
       }
     },
-    onError: (error: any) => {
-      console.error("Error creating manager profile:", error);
-      if (onError) {
-        onError(error);
-      }
-    },
+    onError,
   });
 };
 
@@ -115,10 +104,9 @@ export const useUpdateManagerProfileMutation = ({
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
-    mutationFn: updateManagerProfile,
+    mutationFn: updateManagerProfileApi,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["manager-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
@@ -135,16 +123,22 @@ export const useDeleteManagerProfileMutation = ({
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
-    mutationFn: deleteManagerProfile,
+    mutationFn: deleteManagerProfileApi,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manager-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess();
       }
     },
     onError,
+  });
+};
+
+export const useManagersQuery = () => {
+  return useQuery<{ managers: ManagerProfile[] }, Error>({
+    queryKey: ["managers"],
+    queryFn: fetchManagers,
   });
 };
 export type { ManagerProfile };

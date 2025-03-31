@@ -15,6 +15,7 @@ export interface LoginResponse {
 }
 
 export interface User {
+  is_active: any;
   id: number;
   email: string;
   password:string;

@@ -12,13 +12,15 @@ import {
 } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function ManagerProfilePage() {
   const router = useRouter();
   const params = useParams();
   const id = params.profile as string;
-  const { data: myManagerProfile, isLoading: myProfileLoading } =
+  const { data: myManagerProfile, isLoading: myProfileLoading, isFetched } =
     useMyManagerProfileQuery();
+    const [hasProfileBeenChecked, setHasProfileBeenChecked] = useState(false);
   const { isLoading } = useManagerProfileQuery(id); // Pass the id
   const { mutate: createManagerProfile } =
     useCreateManagerProfileMutation({
@@ -40,6 +42,17 @@ export default function ManagerProfilePage() {
         toast.error(`Error updating manager profile: ${error.message}`);
       },
     });
+
+    useEffect(() => {
+      if (!myProfileLoading && isFetched) {
+        if (!myManagerProfile && !hasProfileBeenChecked) {
+          toast.warning("Manager profile not found. Please create one.");
+          setHasProfileBeenChecked(true);
+        } else if (myManagerProfile && !hasProfileBeenChecked) {
+          setHasProfileBeenChecked(true);
+        }
+      }
+    }, [myProfileLoading, myManagerProfile, hasProfileBeenChecked, isFetched]);
 
   const handleCreateProfile = (data: ManagerProfile) => {
     if (myManagerProfile) {

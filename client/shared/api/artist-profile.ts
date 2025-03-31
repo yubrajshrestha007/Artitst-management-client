@@ -1,7 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/api/artist-profile.ts
 import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
-import { ArtistProfile, DecodedToken } from "@/types/auth";
+import { ArtistProfile } from "@/types/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,6 +41,19 @@ const apiRequest = async (
   }
 
   return response.json();
+};
+
+// Modified to fetch by user ID
+export const fetchArtistProfileByUserId = async (userId: string): Promise<ArtistProfile | null> => {
+  try {
+    return await apiRequest(`artist-by-user/${userId}/`, "GET");
+  } catch (error) {
+    // Handle 404 or other errors gracefully
+    if (error instanceof Error && error.message.includes("404")) {
+      return null;
+    }
+    throw error;
+  }
 };
 
 export const fetchArtistProfile = async (id: string): Promise<ArtistProfile> => {
