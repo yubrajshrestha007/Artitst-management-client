@@ -20,7 +20,7 @@ export function RegisterForm({
     handleSubmit,
     errors,
     isSubmitting,
-    isPending,
+    // isPending,
     apiError,
     onSubmit,
     roles,
@@ -111,7 +111,7 @@ export function RegisterForm({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isPending || isSubmitting || isRegistering}
+                disabled={isSubmitting || isRegistering}
               >
                 {isRegistering
                   ? "Creating account..."

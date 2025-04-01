@@ -1,4 +1,4 @@
-// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/user-management-table.tsx
+// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/management-table.tsx
 "use client";
 import {
   useCreateUserMutation,
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { CustomModal } from "@/components/ui/custom-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
+import MusicList from "./music-list";
 
 interface UserManagementTableProps {
   currentUserRole: string;
@@ -279,7 +280,7 @@ export default function UserManagementTable({
         </>
       )}
 
-      {currentUserRole === "artist" && <p>Welcome, Artist!</p>}
+      {currentUserRole === "artist" && <MusicList />}
       <UserModal
         isOpen={isUserModalOpen}
         onClose={handleCloseModal}

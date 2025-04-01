@@ -1,9 +1,20 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/queries/manager-profile.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ManagerProfile, UseCreateManagerProfileMutationOptions, UseDeleteManagerProfileMutationOptions, UseUpdateManagerProfileMutationOptions } from "@/types/auth";
+import {
+  ManagerProfile,
+  UseCreateManagerProfileMutationOptions,
+  UseDeleteManagerProfileMutationOptions,
+  UseUpdateManagerProfileMutationOptions,
+} from "@/types/auth";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
-import { fetchManagerProfile as fetchManagerProfileApi, createManagerProfile as createManagerProfileApi, updateManagerProfile as updateManagerProfileApi, deleteManagerProfile as deleteManagerProfileApi } from "../api/manager-profile";
+import {
+  fetchManagerProfile as fetchManagerProfileApi,
+  createManagerProfile as createManagerProfileApi,
+  updateManagerProfile as updateManagerProfileApi,
+  deleteManagerProfile as deleteManagerProfileApi,
+  fetchAllManagerProfiles,
+} from "../api/manager-profile";
 import { useInvalidateProfile } from "./profiles";
 import { jwtDecode } from "jwt-decode";
 import { DecodedToken } from "@/types/auth";
@@ -20,7 +31,8 @@ const handleApiError = async (response: Response) => {
     return null; // Treat 404 as no profile found, not an error
   }
   const errorData = await response.json();
-  const errorMessage = errorData.detail || errorData.message || "An error occurred";
+  const errorMessage =
+    errorData.detail || errorData.message || "An error occurred";
   toast.error(errorMessage); // Show error toast
   throw new Error(errorMessage);
 };
@@ -52,14 +64,16 @@ const fetchMyManagerProfile = async (): Promise<ManagerProfile | null> => {
   return response.json();
 };
 
-const fetchManagers = async (): Promise<{ managers: ManagerProfile[] }> => {
-  const response = await fetch(`${BASE_URL}manager-profile/all/`, {
-    headers: getHeaders(),
-  });
-  if (!response.ok) {
-    return handleApiError(response);
+export const fetchManagers = async (): Promise<{
+  managers: ManagerProfile[];
+}> => {
+  try {
+    const response = await fetchAllManagerProfiles();
+    return response;
+  } catch (error) {
+    await handleApiError(error as Response);
+    return { managers: [] }; // Return an empty array for managers in case of an error
   }
-  return response.json();
 };
 
 export const useManagerProfileQuery = (id: string) => {
@@ -88,6 +102,7 @@ export const useCreateManagerProfileMutation = ({
     mutationFn: createManagerProfileApi,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
@@ -107,6 +122,7 @@ export const useUpdateManagerProfileMutation = ({
     mutationFn: updateManagerProfileApi,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
@@ -126,6 +142,7 @@ export const useDeleteManagerProfileMutation = ({
     mutationFn: deleteManagerProfileApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
         onSuccess();

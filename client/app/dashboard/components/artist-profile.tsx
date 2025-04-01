@@ -4,10 +4,10 @@ import { ArtistProfile } from "@/shared/queries/artist-profile";
 import { useUsersQuery } from "@/shared/queries/users";
 import {
   useDeleteArtistProfileMutation,
-  useArtistProfileByUserIdQuery, // Import the new query
+  useArtistProfileByUserIdQuery,
 } from "@/shared/queries/artist-profile";
 import { toast } from "sonner";
-import { useManagersQuery } from "@/shared/queries/manager-profile"; // Import the new query
+import { fetchManagers } from "@/shared/queries/manager-profile";
 
 interface ArtistProfileFormProps {
   onSubmit: (data: ArtistProfile) => void;
@@ -50,16 +50,46 @@ export default function ArtistProfileForm({
     data: managersData,
     isLoading: managersLoading,
     isError: managersError,
-  } = useManagersQuery();
-  const managers = managersData?.managers || [];
+  } = fetchManagers();
+  const allManagers: { id: string; name: string }[] =
+    managersData?.managers?.map((manager) => ({
+      id: manager.id || "",
+      name: manager.name,
+    })) || [];
+
+  // State to hold the current manager of the artist
+  const [currentManager, setCurrentManager] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      // If initialData has a manager_id, find and set the current manager
+      if (initialData.manager_id) {
+        const manager = allManagers.find(
+          (m) => m.id === initialData.manager_id
+        );
+        setCurrentManager(manager || null);
+      } else {
+        setCurrentManager(null);
+      }
     } else if (artistProfileData) {
       setFormData(artistProfileData);
+      // If artistProfileData has a manager_id, find and set the current manager
+      if (artistProfileData.manager_id) {
+        const manager = allManagers.find(
+          (m) => m.id === artistProfileData.manager_id
+        );
+        setCurrentManager(manager || null);
+      } else {
+        setCurrentManager(null);
+      }
+    } else {
+      setCurrentManager(null);
     }
-  }, [initialData, artistProfileData]);
+  }, [initialData, artistProfileData, allManagers]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -75,17 +105,32 @@ export default function ArtistProfileForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ ...formData, id: initialData?.id || artistProfileData?.id, user_id: currentUserId });
+    onSubmit({
+      ...formData,
+      id: initialData?.id || artistProfileData?.id,
+      user_id: currentUserId,
+    });
   };
 
   const handleDelete = () => {
     if (initialData?.id || artistProfileData?.id) {
-      deleteArtistProfile(initialData?.id || artistProfileData?.id);
+      const idToDelete = initialData?.id || artistProfileData?.id;
+      if (idToDelete) {
+        deleteArtistProfile(idToDelete);
+      } else {
+        toast.error("No valid ID found to delete the artist profile.");
+      }
     }
   };
 
+  // Filter out the current manager from the list of all managers
+  const availableManagers = allManagers.filter((manager) =>
+    currentManager ? manager.id !== currentManager.id : true
+  );
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* ... (other form fields) */}
       <div>
         <label htmlFor="name">Name</label>
         <input
@@ -163,23 +208,43 @@ export default function ArtistProfileForm({
           <div>Loading managers...</div>
         ) : managersError ? (
           <div>Error loading managers.</div>
-        ) : managers.length === 0 ? (
-          <div>No managers found.</div>
         ) : (
-          <select
-            id="manager_id"
-            name="manager_id"
-            value={formData.manager_id || ""}
-            onChange={handleChange}
-            className="border border-gray-300 rounded-md p-2 w-full"
-          >
-            <option value="">Select a manager</option>
-            {managers.map((manager) => (
-              <option key={manager.id} value={manager.id}>
-                {manager.name}
-              </option>
-            ))}
-          </select>
+          <>
+            {currentManager ? (
+              <div className="mb-2">
+                Current Manager: {currentManager.name}
+              </div>
+            ) : (
+              <div className="mb-2">No Manager Assigned</div>
+            )}
+
+            {currentManager || availableManagers.length > 0 ? (
+              <select
+                id="manager_id"
+                name="manager_id"
+                value={formData.manager_id || ""}
+                onChange={handleChange}
+                className="border border-gray-300 rounded-md p-2 w-full"
+              >
+                <option value="">
+                  {currentManager ? "Change Manager" : "Select a manager"}
+                </option>
+                {availableManagers.map(
+                  (manager: { id: string; name: string }) => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.name}
+                    </option>
+                  )
+                )}
+              </select>
+            ) : (
+              <div>
+                {currentManager
+                  ? "No other managers available."
+                  : "No managers available."}
+              </div>
+            )}
+          </>
         )}
       </div>
       <div className="flex justify-between">
@@ -187,7 +252,9 @@ export default function ArtistProfileForm({
           type="submit"
           className="bg-blue-500 text-white rounded-md p-2 hover:bg-blue-700"
         >
-          {initialData || artistProfileData ? "Update Profile" : "Create Profile"}
+          {initialData || artistProfileData
+            ? "Update Profile"
+            : "Create Profile"}
         </button>
         {(initialData || artistProfileData) && (
           <button

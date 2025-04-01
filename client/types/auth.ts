@@ -1,4 +1,4 @@
-// types/auth.ts
+// /home/mint/Desktop/ArtistMgntFront/client/types/auth.ts
 import { z } from "zod";
 import { loginSchema, registerSchema } from "@/schemas/auth";
 
@@ -15,7 +15,7 @@ export interface LoginResponse {
 }
 
 export interface User {
-  is_active: any;
+  is_active: boolean;
   id: number;
   email: string;
   password:string;
@@ -89,4 +89,15 @@ export interface ArtistProfile {
   no_of_albums_released: number;
   manager_id: string | null;
   user_id?: string | null;
+}
+
+// Music Interface
+export interface Music {
+  id?: string;
+  title: string;
+  album_name: string;
+  artist_id?: string; // Foreign key to the artist profile
+  genre: string;
+  release_date: string | null;
+  created_by_id?: string | null;
 }
