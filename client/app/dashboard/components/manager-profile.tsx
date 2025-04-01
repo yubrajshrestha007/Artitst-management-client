@@ -26,7 +26,7 @@ export default function ManagerProfileForm({
   });
 
   const { data: usersData } = useUsersQuery();
-  const currentUserEmail = usersData?.user?.email || "";
+  const currentUserId = usersData?.currentUserId || null; // Get the current user ID
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
       toast.error("Manager profile deleted successfully");
@@ -43,10 +43,10 @@ export default function ManagerProfileForm({
     } else {
       setFormData((prevFormData) => ({
         ...prevFormData,
-        company_email: prevFormData.company_email || currentUserEmail,
+        user_id: currentUserId, // Set the user_id when creating a new profile
       }));
     }
-  }, [initialData, currentUserEmail]);
+  }, [initialData, currentUserId]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -62,7 +62,7 @@ export default function ManagerProfileForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ ...formData, id: initialData?.id });
+    onSubmit({ ...formData, id: initialData?.id, user_id: currentUserId }); // Include user_id when submitting
   };
 
   const handleDelete = () => {

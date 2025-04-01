@@ -24,7 +24,10 @@ import {
 } from "@/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { decodeAccessToken } from "@/lib/jwt-lib"; // Corrected import
+import { useArtistProfileByUserIdQuery } from "@/shared/queries/artist-profile";
+import { useMyManagerProfileQuery } from "@/shared/queries/manager-profile"; // Corrected import
 
 export function AppSidebar({
   ...props
@@ -41,25 +44,65 @@ export function AppSidebar({
     {
       name: string;
       logo: React.ElementType;
-      plan: string;
     }[]
   >([]);
 
+  const decodedToken = useMemo(() => decodeAccessToken(), []);
+  const userId = decodedToken?.user_id;
+
+  const { data: artistProfileData } = useArtistProfileByUserIdQuery(
+    userId ? userId.toString() : ""
+  );
+
+  const { data: managerProfileData } = useMyManagerProfileQuery(); // Corrected query
+
   useEffect(() => {
     const userRole = Cookies.get("role") || null;
-    const userName = Cookies.get("name") || null;
-    const userEmail = Cookies.get("email") || null;
+    const userNameFromCookie = Cookies.get("name") || null;
     const userAvatar = "/avatars/shadcn.jpg";
+    let userEmail: string | null = null;
+    let userName: string | null = userNameFromCookie;
+
+    if (decodedToken) {
+      userEmail = decodedToken.email;
+    }
+
+    if (userRole === "artist" && artistProfileData) {
+      userName = artistProfileData.name;
+    } else if (userRole === "artist_manager" && managerProfileData) {
+      userName = managerProfileData.name;
+    }
+
     setRole(userRole);
-    setUser({ name: userName, email: userEmail, avatar: userAvatar });
+    setUser({ name: userName || "", email: userEmail || "", avatar: userAvatar });
     setTeams([
       {
-        name: userName,
+        name: userName || "User",
         logo: GalleryVerticalEnd,
-        plan: userRole,
       },
     ]);
-  }, []);
+  }, [userId, artistProfileData, managerProfileData]);
+
+  // Update the useEffect to fetch the profile based on the role
+  useEffect(() => {
+    if (role === "artist" && artistProfileData) {
+      setUser((prevUser) => ({
+        ...prevUser,
+        name: artistProfileData.name,
+      }));
+      setTeams((prevTeams) =>
+        prevTeams.map((team) => ({ ...team, name: artistProfileData.name }))
+      );
+    } else if (role === "artist_manager" && managerProfileData) {
+      setUser((prevUser) => ({
+        ...prevUser,
+        name: managerProfileData.name,
+      }));
+      setTeams((prevTeams) =>
+        prevTeams.map((team) => ({ ...team, name: managerProfileData.name }))
+      );
+    }
+  }, [role, artistProfileData, managerProfileData]);
 
   const handleLogout = () => {
     Cookies.remove("access");
@@ -124,6 +167,12 @@ export function AppSidebar({
       <SidebarSeparator />
       <SidebarFooter>
         {user && <NavUser user={user} />}
+        {/* Display User Role */}
+        {user && role && (
+          <div className="px-4 pb-2 text-xs text-muted-foreground">
+            Role: {role.replace(/_/g, " ")}
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout}>

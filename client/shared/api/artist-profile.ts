@@ -43,10 +43,10 @@ const apiRequest = async (
   return response.json();
 };
 
-// Modified to fetch by user ID
+// Modified to fetch by user ID - CORRECTED URL
 export const fetchArtistProfileByUserId = async (userId: string): Promise<ArtistProfile | null> => {
   try {
-    return await apiRequest(`artist-by-user/${userId}/`, "GET");
+    return await apiRequest(`artists/by-user/${userId}/`, "GET"); // Corrected URL
   } catch (error) {
     // Handle 404 or other errors gracefully
     if (error instanceof Error && error.message.includes("404")) {
