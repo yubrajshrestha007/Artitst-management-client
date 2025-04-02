@@ -7,7 +7,7 @@ import {
 } from "@/shared/queries/music";
 import { Music } from "@/types/auth";
 import { useState } from "react";
-import { useMyProfileQuery } from "@/shared/queries/profiles";
+import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -20,39 +20,16 @@ import {
 import { Pencil, Trash2 } from "lucide-react";
 import { CustomModal } from "@/components/ui/custom-modal";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const MusicList = () => {
   const { data: musicList, isLoading } = useMusicListQuery();
-  const { mutate: createMusic } = useCreateMusicMutation();
-  const { mutate: updateMusic } = useUpdateMusicMutation();
-  const { mutate: deleteMusic } = useDeleteMusicMutation();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [musicToDelete, setMusicToDelete] = useState<Music | null>(null);
-  const [formData, setFormData] = useState<Music>({
-    title: "",
-    album_name: "",
-    genre: "",
-    release_date: null,
-    created_by_id: "",
-  });
-  const { data: profile, isLoading: isProfileLoading } = useMyProfileQuery(true);
-
-  const handleCreateMusic = () => {
-    createMusic(formData);
-    setIsModalOpen(false);
-    setFormData({
-      title: "",
-      album_name: "",
-      genre: "",
-      release_date: null,
-      created_by_id: "",
-    });
-  };
-  const handleUpdateMusic = () => {
-    if (selectedMusic?.id) {
-      updateMusic({ id: selectedMusic.id, data: formData });
+  const {
+    mutate: createMusic,
+    isLoading: isCreating,
+  } = useCreateMusicMutation({
+    onSuccess: () => {
+      toast.success("Music created successfully!");
       setIsModalOpen(false);
       setFormData({
         title: "",
@@ -61,6 +38,65 @@ const MusicList = () => {
         release_date: null,
         created_by_id: "",
       });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to create music");
+    },
+  });
+  const {
+    mutate: updateMusic,
+    isLoading: isUpdating,
+  } = useUpdateMusicMutation({
+    onSuccess: () => {
+      toast.success("Music updated successfully!");
+      setIsModalOpen(false);
+      setFormData({
+        title: "",
+        album_name: "",
+        genre: "",
+        release_date: null,
+        created_by_id: "",
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update music");
+    },
+  });
+  const {
+    mutate: deleteMusic,
+    isLoading: isDeleting,
+  } = useDeleteMusicMutation({
+    onSuccess: () => {
+      toast.success("Music deleted successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete music");
+    },
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [musicToDelete, setMusicToDelete] = useState<Music | null>(null);
+  const [isCreatingMusic, setIsCreatingMusic] = useState(false);
+  const [isUpdatingMusic, setIsUpdatingMusic] = useState(false);
+  const [formData, setFormData] = useState<Music>({
+    title: "",
+    album_name: "",
+    genre: "",
+    release_date: null,
+    created_by_id: "",
+  });
+  const { data: profile, isLoading: isProfileLoading } =
+    useMyArtistProfileQuery(true);
+
+  const handleCreateMusic = () => {
+    if (profile) {
+      createMusic({ ...formData, created_by_id: profile.user_id });
+    }
+  };
+  const handleUpdateMusic = () => {
+    if (selectedMusic?.id) {
+      updateMusic({ id: selectedMusic.id, data: formData });
     }
   };
   const handleDeleteMusic = (music: Music) => {
@@ -82,6 +118,8 @@ const MusicList = () => {
   const handleOpenModal = (music: Music | null = null) => {
     setSelectedMusic(music);
     if (music) {
+      setIsUpdatingMusic(true);
+      setIsCreatingMusic(false);
       setFormData({
         title: music.title,
         album_name: music.album_name,
@@ -90,6 +128,8 @@ const MusicList = () => {
         created_by_id: music.created_by_id,
       });
     } else {
+      setIsCreatingMusic(true);
+      setIsUpdatingMusic(false);
       setFormData({
         title: "",
         album_name: "",
@@ -102,6 +142,13 @@ const MusicList = () => {
   };
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setFormData({
+      title: "",
+      album_name: "",
+      genre: "",
+      release_date: null,
+      created_by_id: "",
+    });
   };
   const handleChange = (
     e: React.ChangeEvent<
@@ -123,7 +170,7 @@ const MusicList = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-700">Music List</h2>
-          <Button onClick={() => handleOpenModal()}>Create Music</Button>
+        <Button onClick={() => handleOpenModal()}>Create Music</Button>
       </div>
       <Table>
         <TableHeader>
@@ -160,6 +207,7 @@ const MusicList = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDeleteMusic(music)}
+                    disabled={isDeleting}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -170,11 +218,14 @@ const MusicList = () => {
         </TableBody>
       </Table>
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div
+          key={selectedMusic?.id || "new"}
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"
+        >
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3 text-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                {selectedMusic ? "Update Music" : "Create Music"}
+                {isUpdatingMusic ? "Update Music" : "Create Music"}
               </h3>
               <div className="mt-2 px-7 py-3">
                 <label htmlFor="title">Title</label>
@@ -213,7 +264,6 @@ const MusicList = () => {
                   onChange={handleChange}
                   className="border border-gray-300 rounded-md p-2 w-full"
                 />
-
               </div>
               <div className="items-center px-4 py-3">
                 <Button
@@ -223,10 +273,11 @@ const MusicList = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={selectedMusic ? handleUpdateMusic : handleCreateMusic}
+                  onClick={isUpdatingMusic ? handleUpdateMusic : handleCreateMusic}
                   className="px-4 py-2 bg-blue-500 text-white rounded-md ml-2"
+                  disabled={isCreating || isUpdating}
                 >
-                  {selectedMusic ? "Update" : "Create"}
+                  {isUpdatingMusic ? (isUpdating ? "Updating..." : "Update") : (isCreating ? "Creating..." : "Create")}
                 </Button>
               </div>
             </div>

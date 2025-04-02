@@ -1,4 +1,4 @@
-// /home/mint/Desktop/ArtistMgntFront/client/app/[profile]/manager/page.tsx
+// /home/mint/Desktop/ArtistMgntFront/client/app/(profile)/manager/page.tsx
 "use client";
 import DashboardLayout from "@/app/dashboard/components/dashboard-layout";
 import DashboardHeader from "@/app/dashboard/components/dashboard-headers";
@@ -8,8 +8,8 @@ import {
   useCreateManagerProfileMutation,
   useManagerProfileQuery,
   useUpdateManagerProfileMutation,
-  useMyManagerProfileQuery,
 } from "@/shared/queries/manager-profile";
+import { useMyManagerProfileQuery } from "@/shared/queries/profiles"; // Corrected import
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -19,7 +19,7 @@ export default function ManagerProfilePage() {
   const params = useParams();
   const id = params.profile as string;
   const { data: myManagerProfile, isLoading: myProfileLoading, isFetched } =
-    useMyManagerProfileQuery();
+    useMyManagerProfileQuery(true); // Corrected query
     const [hasProfileBeenChecked, setHasProfileBeenChecked] = useState(false);
   const { isLoading } = useManagerProfileQuery(id); // Pass the id
   const { mutate: createManagerProfile } =

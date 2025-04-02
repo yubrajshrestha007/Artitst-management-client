@@ -12,7 +12,7 @@ import {
   updateMusic,
 } from "@/shared/api/music";
 import { Music } from "@/types/auth";
-import { useMyProfileQuery } from "./profiles";
+import { useMyArtistProfileQuery } from "./profiles"; // Changed import
 import { toast } from "sonner";
 
 // Fetch all music
@@ -35,10 +35,10 @@ export const useMusicQuery = (id: string) => {
 // Create music
 export const useCreateMusicMutation = () => {
   const queryClient = useQueryClient();
-  const { data: profile } = useMyProfileQuery(true); // Assuming you need the profile to get the artist_id
+  const { data: profile } = useMyArtistProfileQuery(true); // Changed query
   return useMutation({
     mutationFn: async (data: Music) => {
-      if (profile?.role !== "artist") {
+      if (!profile) {
         toast.error("Only artist can create music");
         throw new Error("Only artist can create music");
       }
@@ -59,10 +59,10 @@ export const useCreateMusicMutation = () => {
 // Update music
 export const useUpdateMusicMutation = () => {
   const queryClient = useQueryClient();
-  const { data: profile } = useMyProfileQuery(true);
+  const { data: profile } = useMyArtistProfileQuery(true); // Changed query
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Music }) => {
-      if (profile?.role !== "artist") {
+      if (!profile) {
         toast.error("Only artist can update music");
         throw new Error("Only artist can update music");
       }
@@ -81,10 +81,10 @@ export const useUpdateMusicMutation = () => {
 // Delete music
 export const useDeleteMusicMutation = () => {
   const queryClient = useQueryClient();
-  const { data: profile } = useMyProfileQuery(true);
+  const { data: profile } = useMyArtistProfileQuery(true); // Changed query
   return useMutation({
     mutationFn: async (id: string) => {
-      if (profile?.role !== "artist") {
+      if (!profile) {
         toast.error("Only artist can delete music");
         throw new Error("Only artist can delete music");
       }

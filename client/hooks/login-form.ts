@@ -1,58 +1,63 @@
 // hooks/login-form.ts
-import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { LoginSchema, LoginResponse } from "@/types/auth";
+import { loginApi } from "@/shared/api/auth";
+import Cookies from "js-cookie";
+import { prefetchArtistProfile, prefetchManagerProfile } from "@/shared/queries/profiles";
+import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema } from "@/schemas/auth";
-import { LoginSchema } from "@/types/auth";
-import { useLoginMutation } from "@/shared/queries/auth";
-import Cookies from 'js-cookie';
-import { useQueryClient } from "@tanstack/react-query";
-import { prefetchProfile } from "@/shared/queries/profiles";
+import { z } from "zod";
 
 export const useLoginForm = () => {
   const router = useRouter();
-  const [apiError, setApiError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginSchema>({
+  const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
+  const {
+    formState: { errors, isSubmitting },
+    reset,
+    control,
+  } = form;
 
-  const { mutate: login, isPending } = useLoginMutation({
+  const { mutate: loginUser, isPending, error } = useMutation({
+    mutationFn: async (data: LoginSchema): Promise<LoginResponse> => {
+      const response = await loginApi(data);
+      Cookies.set("access", response.access);
+      Cookies.set("refresh", response.refresh);
+      const role = response.role;
+      Cookies.set("role", role);
+      return response;
+    },
     onSuccess: async (data) => {
-      console.log("Login successful:", data);
-      setApiError(null);
-      Cookies.set('access', data.access, { expires: 7 });
-      Cookies.set('refresh', data.refresh, { expires: 7 });
-      Cookies.set('role', data.role, { expires: 7 });
-      // Prefetch the profile after successful login
-      await prefetchProfile(queryClient);
+      const role = data.role;
+      if (role === "artist") {
+        await prefetchArtistProfile(queryClient);
+      } else if (role === "artist_manager") {
+        await prefetchManagerProfile(queryClient);
+      }
       router.push("/dashboard");
+      reset();
     },
-    onError: (error: { message: string }) => {
-      console.error("Login failed:", error);
-      setApiError(error.message || "An error occurred during login.");
+    onError: (error: any) => {
+      toast.error(error.message || "Login failed");
     },
   });
-
-  const onSubmit = (data: LoginSchema): void => {
-    setApiError(null);
-    login(data);
-  };
 
   return {
-    register,
-    handleSubmit,
+    form,
     errors,
     isSubmitting,
-    apiError,
     isPending,
-    onSubmit,
+    control,
+    apiError: error?.message,
+    loginUser,
   };
 };

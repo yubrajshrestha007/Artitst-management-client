@@ -13,7 +13,7 @@ import {
   UseDeleteArtistProfileMutationOptions,
   UseUpdateArtistProfileMutationOptions,
 } from "@/types/auth";
-import { useInvalidateProfile } from "./profiles";
+import { toast } from "sonner";
 
 // New query to fetch artist profile by user ID
 export const useArtistProfileByUserIdQuery = (userId: string) => {
@@ -21,6 +21,10 @@ export const useArtistProfileByUserIdQuery = (userId: string) => {
     queryKey: ["artist-profile-by-user", userId],
     queryFn: () => fetchArtistProfileByUserId(userId),
     enabled: !!userId,
+    retry: false, // Disable retries
+    onError: (error) => {
+      toast.error(error.message || "Failed to fetch artist profile by user ID");
+    },
   });
 };
 
@@ -29,6 +33,10 @@ export const useArtistProfileQuery = (id: string) => {
     queryKey: ["artist-profile", id],
     queryFn: () => fetchArtistProfile(id),
     enabled: !!id,
+    retry: false,
+    onError: (error) => {
+      toast.error(error.message || "Failed to fetch artist profile");
+    },
   });
 };
 
@@ -37,13 +45,11 @@ export const useCreateArtistProfileMutation = ({
   onError,
 }: UseCreateArtistProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
-  const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
     mutationFn: createArtistProfile,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
       queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
-      invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
       }
@@ -57,13 +63,11 @@ export const useUpdateArtistProfileMutation = ({
   onError,
 }: UseUpdateArtistProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
-  const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
     mutationFn: updateArtistProfile,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
       queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
-      invalidateProfile();
       if (onSuccess) {
         onSuccess(data);
       }
@@ -77,13 +81,11 @@ export const useDeleteArtistProfileMutation = ({
   onError,
 }: UseDeleteArtistProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
-  const { mutate: invalidateProfile } = useInvalidateProfile();
   return useMutation({
     mutationFn: deleteArtistProfile,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["artist-profile"] });
       queryClient.invalidateQueries({ queryKey: ["artist-profile-by-user"] }); // Invalidate the new query as well
-      invalidateProfile();
       if (onSuccess) {
         onSuccess();
       }

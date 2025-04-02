@@ -15,7 +15,7 @@ import {
   deleteManagerProfile as deleteManagerProfileApi,
   fetchAllManagerProfiles,
 } from "../api/manager-profile";
-import { useInvalidateProfile } from "./profiles";
+import { useInvalidateProfile, useMyManagerProfileQuery } from "./profiles"; // Changed import
 import { jwtDecode } from "jwt-decode";
 import { DecodedToken } from "@/types/auth";
 
@@ -45,25 +45,6 @@ const getHeaders = () => {
   };
 };
 
-const fetchMyManagerProfile = async (): Promise<ManagerProfile | null> => {
-  const access = Cookies.get("access");
-  if (!access) {
-    throw new Error("Access token not found");
-  }
-  const decodedToken: DecodedToken = jwtDecode(access);
-  const userId = decodedToken.user_id;
-  const response = await fetch(`${BASE_URL}manager-by-user/${userId}`, {
-    headers: getHeaders(),
-  });
-  if (!response.ok) {
-    return handleApiError(response);
-  }
-  if (response.status === 204) {
-    return null;
-  }
-  return response.json();
-};
-
 export const fetchManagers = async (): Promise<{
   managers: ManagerProfile[];
 }> => {
@@ -81,14 +62,10 @@ export const useManagerProfileQuery = (id: string) => {
     queryKey: ["managerProfile", id],
     queryFn: () => fetchManagerProfileApi(id),
     enabled: !!id,
-  });
-};
-
-export const useMyManagerProfileQuery = () => {
-  return useQuery<ManagerProfile | null, Error>({
-    queryKey: ["myManagerProfile"],
-    queryFn: fetchMyManagerProfile,
-    retry: 1, // Retry only once
+    retry: false,
+    onError: (error) => {
+      toast.error(error.message || "Failed to fetch manager profile");
+    },
   });
 };
 
@@ -98,6 +75,7 @@ export const useCreateManagerProfileMutation = ({
 }: UseCreateManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
+  const { data: profile } = useMyManagerProfileQuery(true);
   return useMutation({
     mutationFn: createManagerProfileApi,
     onSuccess: (data) => {
@@ -108,7 +86,13 @@ export const useCreateManagerProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError,
+    onError: (error: any) => {
+      if (!profile) {
+        toast.error("Only manager can create manager profile");
+        throw new Error("Only manager can create manager profile");
+      }
+      toast.error(error.message || "Failed to create manager profile");
+    },
   });
 };
 
@@ -118,6 +102,7 @@ export const useUpdateManagerProfileMutation = ({
 }: UseUpdateManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
+  const { data: profile } = useMyManagerProfileQuery(true);
   return useMutation({
     mutationFn: updateManagerProfileApi,
     onSuccess: (data) => {
@@ -128,7 +113,13 @@ export const useUpdateManagerProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError,
+    onError: (error: any) => {
+      if (!profile) {
+        toast.error("Only manager can update manager profile");
+        throw new Error("Only manager can update manager profile");
+      }
+      toast.error(error.message || "Failed to update manager profile");
+    },
   });
 };
 
@@ -138,6 +129,7 @@ export const useDeleteManagerProfileMutation = ({
 }: UseDeleteManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
+  const { data: profile } = useMyManagerProfileQuery(true);
   return useMutation({
     mutationFn: deleteManagerProfileApi,
     onSuccess: () => {
@@ -148,7 +140,13 @@ export const useDeleteManagerProfileMutation = ({
         onSuccess();
       }
     },
-    onError,
+    onError: (error: any) => {
+      if (!profile) {
+        toast.error("Only manager can delete manager profile");
+        throw new Error("Only manager can delete manager profile");
+      }
+      toast.error(error.message || "Failed to delete manager profile");
+    },
   });
 };
 
@@ -156,6 +154,10 @@ export const useManagersQuery = () => {
   return useQuery<{ managers: ManagerProfile[] }, Error>({
     queryKey: ["managers"],
     queryFn: fetchManagers,
+    retry: false,
+    onError: (error) => {
+      toast.error(error.message || "Failed to fetch managers");
+    },
   });
 };
 export type { ManagerProfile };

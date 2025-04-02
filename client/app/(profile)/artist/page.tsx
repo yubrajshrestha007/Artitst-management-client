@@ -8,23 +8,16 @@ import {
   useCreateArtistProfileMutation,
   useUpdateArtistProfileMutation,
 } from "@/shared/queries/artist-profile";
-import { useMyProfileQuery } from "@/shared/queries/profiles"; // Import the new hook
+import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react"; // Import useState
-import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
-import { DecodedToken } from "@/types/auth";
-import { useAuth } from "@/hooks/auth"; // Import the new hook
-import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/auth";
 
 export default function ArtistProfilePage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth(queryClient); // Use the new hook and pass queryClient
-  const { data: profile, isLoading: myProfileLoading, isFetched } = useMyProfileQuery(isAuthenticated); // Use the new hook and pass isAuthenticated
-  const [hasProfileBeenChecked, setHasProfileBeenChecked] = useState(false); // New state
-
+  const { isAuthenticated, role } = useAuth(); // Use the new hook
+  const { data: profile, isLoading: myProfileLoading } =
+    useMyArtistProfileQuery(isAuthenticated); // Call the hook unconditionally
   const { mutate: createArtistProfile } = useCreateArtistProfileMutation({
     onSuccess: () => {
       toast.success("Artist profile created successfully!");
@@ -44,16 +37,13 @@ export default function ArtistProfilePage() {
     },
   });
 
-  useEffect(() => {
-    if (!myProfileLoading && isFetched) {
-      if (!profile && !hasProfileBeenChecked) {
-        toast.warning("Artist profile not found. Please create one.");
-        setHasProfileBeenChecked(true);
-      } else if (profile && !hasProfileBeenChecked) {
-        setHasProfileBeenChecked(true);
-      }
-    }
-  }, [myProfileLoading, profile, hasProfileBeenChecked, isFetched]);
+  // Role-based access control: Check if the user is an artist first
+  if (!isAuthenticated) {
+    return <div>Please log in.</div>;
+  }
+  if (role !== "artist") {
+    return <div>You are not an artist</div>;
+  }
 
   const handleCreateProfile = (data: ArtistProfile) => {
     if (profile) {
@@ -75,17 +65,9 @@ export default function ArtistProfilePage() {
       </DashboardLayout>
     );
   }
-  const access = Cookies.get("access");
-  // if (!access) {
-  //   return <div>Access token not found</div>;
-  // }
-  if (!access) {
-    return <div>Access token not found</div>;
-  }
-  const decodedToken: DecodedToken = jwtDecode(access);
-  const role = decodedToken.role;
-  if (role !== "artist") {
-    return <div>You are not an artist</div>;
+
+  if (!profile) {
+    toast.warning("Artist profile not found. Please create one.");
   }
 
   return (
@@ -97,7 +79,7 @@ export default function ArtistProfilePage() {
         </h1>
         <ArtistProfileForm
           onSubmit={handleCreateProfile}
-          initialData={profile as ArtistProfile}
+          initialData={profile}
         />
       </div>
     </DashboardLayout>

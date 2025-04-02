@@ -24,10 +24,9 @@ import {
 } from "@/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { useEffect, useState, useMemo } from "react";
-import { decodeAccessToken } from "@/lib/jwt-lib"; // Corrected import
-import { useArtistProfileByUserIdQuery } from "@/shared/queries/artist-profile";
-import { useMyManagerProfileQuery } from "@/shared/queries/manager-profile"; // Corrected import
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { decodeAccessToken } from "@/lib/jwt-lib";
+import { useMyArtistProfileQuery, useMyManagerProfileQuery } from "@/shared/queries/profiles";
 
 export function AppSidebar({
   ...props
@@ -48,13 +47,25 @@ export function AppSidebar({
   >([]);
 
   const decodedToken = useMemo(() => decodeAccessToken(), []);
-  const userId = decodedToken?.user_id;
+  const isAuthenticated = !!decodedToken;
 
-  const { data: artistProfileData } = useArtistProfileByUserIdQuery(
-    userId ? userId.toString() : ""
+  const { data: artistProfileData } = useMyArtistProfileQuery(isAuthenticated);
+  const { data: managerProfileData } = useMyManagerProfileQuery(isAuthenticated);
+
+  const updateUserData = useCallback(
+    (profileData: any, userRole: string) => {
+      if (profileData) {
+        setUser((prevUser) => ({
+          ...prevUser,
+          name: profileData.name,
+        }));
+        setTeams((prevTeams) =>
+          prevTeams.map((team) => ({ ...team, name: profileData.name }))
+        );
+      }
+    },
+    []
   );
-
-  const { data: managerProfileData } = useMyManagerProfileQuery(); // Corrected query
 
   useEffect(() => {
     const userRole = Cookies.get("role") || null;
@@ -67,42 +78,27 @@ export function AppSidebar({
       userEmail = decodedToken.email;
     }
 
-    if (userRole === "artist" && artistProfileData) {
-      userName = artistProfileData.name;
-    } else if (userRole === "artist_manager" && managerProfileData) {
-      userName = managerProfileData.name;
+    setRole(userRole);
+
+    if (userRole === "artist") {
+      updateUserData(artistProfileData, userRole);
+    } else if (userRole === "artist_manager") {
+      updateUserData(managerProfileData, userRole);
     }
 
-    setRole(userRole);
-    setUser({ name: userName || "", email: userEmail || "", avatar: userAvatar });
-    setTeams([
+    setUser((prevUser) => ({
+      ...prevUser,
+      name: userName || prevUser?.name || "",
+      email: userEmail || prevUser?.email || "",
+      avatar: userAvatar,
+    }));
+    setTeams((prevTeams) => [
       {
-        name: userName || "User",
+        name: userName || prevTeams[0]?.name || "User",
         logo: GalleryVerticalEnd,
       },
     ]);
-  }, [userId, artistProfileData, managerProfileData]);
-
-  // Update the useEffect to fetch the profile based on the role
-  useEffect(() => {
-    if (role === "artist" && artistProfileData) {
-      setUser((prevUser) => ({
-        ...prevUser,
-        name: artistProfileData.name,
-      }));
-      setTeams((prevTeams) =>
-        prevTeams.map((team) => ({ ...team, name: artistProfileData.name }))
-      );
-    } else if (role === "artist_manager" && managerProfileData) {
-      setUser((prevUser) => ({
-        ...prevUser,
-        name: managerProfileData.name,
-      }));
-      setTeams((prevTeams) =>
-        prevTeams.map((team) => ({ ...team, name: managerProfileData.name }))
-      );
-    }
-  }, [role, artistProfileData, managerProfileData]);
+  }, [decodedToken, artistProfileData, managerProfileData, updateUserData]);
 
   const handleLogout = () => {
     Cookies.remove("access");

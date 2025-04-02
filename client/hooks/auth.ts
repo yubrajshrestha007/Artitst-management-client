@@ -1,20 +1,25 @@
 // /home/mint/Desktop/ArtistMgntFront/client/hooks/auth.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Cookies from "js-cookie";
-import { prefetchProfile } from "@/shared/queries/profiles";
+import { decodeAccessToken } from "@/lib/jwt-lib";
 
-import { QueryClient } from "@tanstack/react-query";
-
-export const useAuth = (queryClient: QueryClient) => {
+export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const decodedToken = useMemo(() => decodeAccessToken(), []);
 
   useEffect(() => {
     const access = Cookies.get("access");
-    if (access) {
-      setIsAuthenticated(true);
-      prefetchProfile(queryClient);
-    }
-  }, [queryClient]);
+    const userRole = Cookies.get("role");
 
-  return { isAuthenticated, setIsAuthenticated };
+    if (access && userRole) {
+      setIsAuthenticated(true);
+      setRole(userRole);
+    } else {
+      setIsAuthenticated(false);
+      setRole(null);
+    }
+  }, [decodedToken]);
+
+  return { isAuthenticated, setIsAuthenticated, role };
 };
