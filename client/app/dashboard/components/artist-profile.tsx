@@ -1,5 +1,5 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-profile.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArtistProfile } from "@/shared/queries/artist-profile";
 import { useUsersQuery } from "@/shared/queries/users";
 import {
@@ -14,82 +14,116 @@ interface ArtistProfileFormProps {
   initialData?: ArtistProfile;
 }
 
+// Default form data for a new artist profile
+const defaultFormData: ArtistProfile = {
+  name: "",
+  date_of_birth: null,
+  gender: "",
+  address: "",
+  first_release_year: null,
+  no_of_albums_released: 0,
+  manager_id: null,
+};
+
 export default function ArtistProfileForm({
   onSubmit,
   initialData,
 }: ArtistProfileFormProps) {
-  const [formData, setFormData] = useState<ArtistProfile>({
-    name: "",
-    date_of_birth: null,
-    gender: "",
-    address: "",
-    first_release_year: null,
-    no_of_albums_released: 0,
-    manager_id: null,
-  });
-  const { data: usersData } = useUsersQuery();
-  const currentUserId = usersData?.currentUserId || null;
-
-  // Fetch artist profile by user ID
-  const { data: artistProfileData } = useArtistProfileByUserIdQuery(
-    currentUserId ? currentUserId.toString() : ""
-  );
-
-  const { mutate: deleteArtistProfile } = useDeleteArtistProfileMutation({
-    onSuccess: () => {
-      toast.success("Artist profile deleted successfully");
-      // Redirect or update UI as needed
-    },
-    onError: (error) => {
-      toast.error(`Error deleting artist profile: ${error.message}`);
-    },
-  });
-
-  // Fetch the list of managers
-  const {
-    data: managersData,
-    isLoading: managersLoading,
-    isError: managersError,
-  } = fetchManagers();
-  const allManagers: { id: string; name: string }[] =
-    managersData?.managers?.map((manager) => ({
-      id: manager.id || "",
-      name: manager.name,
-    })) || [];
-
-  // State to hold the current manager of the artist
+  const [formData, setFormData] = useState<ArtistProfile>(defaultFormData);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentManager, setCurrentManager] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [allManagers, setAllManagers] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-      // If initialData has a manager_id, find and set the current manager
-      if (initialData.manager_id) {
-        const manager = allManagers.find(
-          (m) => m.id === initialData.manager_id
-        );
-        setCurrentManager(manager || null);
-      } else {
-        setCurrentManager(null);
-      }
-    } else if (artistProfileData) {
-      setFormData(artistProfileData);
-      // If artistProfileData has a manager_id, find and set the current manager
-      if (artistProfileData.manager_id) {
-        const manager = allManagers.find(
-          (m) => m.id === artistProfileData.manager_id
-        );
-        setCurrentManager(manager || null);
-      } else {
-        setCurrentManager(null);
-      }
+  const { data: usersData } = useUsersQuery();
+  const currentUserId = usersData?.currentUserId || null;
+
+  // Fetch artist profile by user ID
+  const {
+    data: artistProfileData,
+    isLoading: isArtistProfileLoading,
+    isError: isArtistProfileError,
+  } = useArtistProfileByUserIdQuery(
+    currentUserId ? currentUserId.toString() : "",
+    {
+      enabled: !!currentUserId, // Only fetch if currentUserId is available
+    }
+  );
+
+  const { mutate: deleteArtistProfile, isLoading: isDeleteLoading } =
+    useDeleteArtistProfileMutation({
+      onSuccess: () => {
+        toast.success("Artist profile deleted successfully");
+        // Redirect or update UI as needed
+      },
+      onError: (error) => {
+        toast.error(`Error deleting artist profile: ${error.message}`);
+      },
+    });
+
+  // Memoize fetchManagers
+  const memoizedFetchManagers = useMemo(() => fetchManagers, []);
+
+  // Function to reset the form data to default values
+  const resetFormData = () => {
+    setFormData(defaultFormData);
+    setCurrentManager(null);
+  };
+
+  // Function to set the form data and current manager
+  const setProfileData = (profileData: ArtistProfile) => {
+    setFormData(profileData);
+    if (profileData.manager_id) {
+      const manager = allManagers.find((m) => m.id === profileData.manager_id);
+      setCurrentManager(manager || null);
     } else {
       setCurrentManager(null);
     }
-  }, [initialData, artistProfileData, allManagers]);
+  };
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      setIsError(false);
+      try {
+        // Fetch managers
+        const managersResult = await memoizedFetchManagers();
+
+        if (managersResult.data?.managers) {
+          setAllManagers(
+            managersResult.data.managers.map((manager) => ({
+              id: manager.id || "",
+              name: manager.name,
+            }))
+          );
+        }
+      } catch (error) {
+        setIsError(true);
+        toast.error("Error loading managers.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, [memoizedFetchManagers]); // Only run when memoizedFetchManagers changes
+
+  useEffect(() => {
+    if (initialData) {
+      setProfileData(initialData);
+    } else if (artistProfileData) {
+      setProfileData(artistProfileData);
+    } else {
+      resetFormData();
+    }
+  }, [initialData, artistProfileData]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -103,22 +137,36 @@ export default function ArtistProfileForm({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      ...formData,
-      id: initialData?.id || artistProfileData?.id,
-      user_id: currentUserId,
-    });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        ...formData,
+        id: initialData?.id || artistProfileData?.id,
+        user_id: currentUserId,
+      });
+    } catch (error) {
+      toast.error("Error submitting the form.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (initialData?.id || artistProfileData?.id) {
-      const idToDelete = initialData?.id || artistProfileData?.id;
-      if (idToDelete) {
-        deleteArtistProfile(idToDelete);
-      } else {
-        toast.error("No valid ID found to delete the artist profile.");
+      setIsDeleting(true);
+      try {
+        const idToDelete = initialData?.id || artistProfileData?.id;
+        if (idToDelete) {
+          await deleteArtistProfile(idToDelete);
+        } else {
+          toast.error("No valid ID found to delete the artist profile.");
+        }
+      } catch (error) {
+        toast.error("Error deleting artist profile.");
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -127,6 +175,13 @@ export default function ArtistProfileForm({
   const availableManagers = allManagers.filter((manager) =>
     currentManager ? manager.id !== currentManager.id : true
   );
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (isError) {
+    return <div>Error loading data.</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -140,6 +195,7 @@ export default function ArtistProfileForm({
           value={formData.name}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required
         />
       </div>
       <div>
@@ -161,6 +217,7 @@ export default function ArtistProfileForm({
           value={formData.gender}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required
         >
           <option value="">Select Gender</option>
           <option value="male">Male</option>
@@ -204,9 +261,9 @@ export default function ArtistProfileForm({
       {/* Manager Select */}
       <div>
         <label htmlFor="manager_id">Manager</label>
-        {managersLoading ? (
+        {isLoading ? (
           <div>Loading managers...</div>
-        ) : managersError ? (
+        ) : isError ? (
           <div>Error loading managers.</div>
         ) : (
           <>
@@ -251,8 +308,11 @@ export default function ArtistProfileForm({
         <button
           type="submit"
           className="bg-blue-500 text-white rounded-md p-2 hover:bg-blue-700"
+          disabled={isSubmitting}
         >
-          {initialData || artistProfileData
+          {isSubmitting
+            ? "Submitting..."
+            : initialData || artistProfileData
             ? "Update Profile"
             : "Create Profile"}
         </button>
@@ -261,8 +321,9 @@ export default function ArtistProfileForm({
             type="button"
             onClick={handleDelete}
             className="bg-red-500 text-white rounded-md p-2 hover:bg-red-700"
+            disabled={isDeleting}
           >
-            Delete Profile
+            {isDeleting ? "Deleting..." : "Delete Profile"}
           </button>
         )}
       </div>

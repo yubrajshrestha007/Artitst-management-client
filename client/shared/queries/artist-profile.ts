@@ -12,8 +12,10 @@ import {
   UseCreateArtistProfileMutationOptions,
   UseDeleteArtistProfileMutationOptions,
   UseUpdateArtistProfileMutationOptions,
+  ApiError,
 } from "@/types/auth";
 import { toast } from "sonner";
+import { handleApiError } from "../api/api-utils";
 
 // New query to fetch artist profile by user ID
 export const useArtistProfileByUserIdQuery = (userId: string) => {
@@ -22,8 +24,13 @@ export const useArtistProfileByUserIdQuery = (userId: string) => {
     queryFn: () => fetchArtistProfileByUserId(userId),
     enabled: !!userId,
     retry: false, // Disable retries
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to fetch artist profile by user ID");
+    onError: async (error: any) => {
+      try {
+        const errorData = await error.response.json();
+        handleApiError(errorData);
+      } catch (parseError) {
+        toast.error("An unexpected error occurred.");
+      }
     },
   });
 };
@@ -34,8 +41,13 @@ export const useArtistProfileQuery = (id: string) => {
     queryFn: () => fetchArtistProfile(id),
     enabled: !!id,
     retry: false,
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to fetch artist profile");
+    onError: async (error: any) => {
+      try {
+        const errorData = await error.response.json();
+        handleApiError(errorData);
+      } catch (parseError) {
+        toast.error("An unexpected error occurred.");
+      }
     },
   });
 };
@@ -54,7 +66,14 @@ export const useCreateArtistProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError,
+    onError: async (error: any) => {
+      try {
+        const errorData = await error.response.json();
+        handleApiError(errorData);
+      } catch (parseError) {
+        toast.error("An unexpected error occurred.");
+      }
+    },
   });
 };
 
@@ -72,7 +91,14 @@ export const useUpdateArtistProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError,
+    onError: async (error: any) => {
+      try {
+        const errorData = await error.response.json();
+        handleApiError(errorData);
+      } catch (parseError) {
+        toast.error("An unexpected error occurred.");
+      }
+    },
   });
 };
 
@@ -90,7 +116,14 @@ export const useDeleteArtistProfileMutation = ({
         onSuccess();
       }
     },
-    onError,
+    onError: async (error: any) => {
+      try {
+        const errorData = await error.response.json();
+        handleApiError(errorData);
+      } catch (parseError) {
+        toast.error("An unexpected error occurred.");
+      }
+    },
   });
 };
 export type { ArtistProfile };

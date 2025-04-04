@@ -11,8 +11,8 @@ import {
   fetchMusicList,
   updateMusic,
 } from "@/shared/api/music";
-import { Music, ArtistProfile } from "@/types/auth";
-import { useMyArtistProfileQuery, useMyManagerProfileQuery } from "./profiles";
+import { Music } from "@/types/auth";
+import { useMyArtistProfileQuery } from "./profiles";
 import { toast } from "sonner";
 import { useArtistProfileByUserIdQuery } from "./artist-profile";
 

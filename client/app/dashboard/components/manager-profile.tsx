@@ -4,6 +4,7 @@ import { ManagerProfile } from "@/shared/queries/manager-profile";
 import { useUsersQuery } from "@/shared/queries/users";
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
+import { isValid, parseISO } from "date-fns"; // Import date-fns functions
 
 interface ManagerProfileFormProps {
   onSubmit: (data: ManagerProfile) => void;
@@ -24,29 +25,32 @@ export default function ManagerProfileForm({
     date_of_birth: null,
     user_id: null,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false); // Add loading state
+  const [isDeleting, setIsDeleting] = useState(false); // Add loading state
 
   const { data: usersData } = useUsersQuery();
-  const currentUserId = usersData?.currentUserId || null; // Get the current user ID
-  const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
-    onSuccess: () => {
-      toast.success("Manager profile deleted successfully");
-      // Redirect or update UI as needed
-    },
-    onError: (error) => {
-      toast.error(`Error deleting manager profile: ${error}`);
-    },
-  });
+  const currentUserId = usersData?.currentUserId || null;
+  const { mutate: deleteManagerProfile, isLoading: isDeleteLoading } =
+    useDeleteManagerProfileMutation({
+      onSuccess: () => {
+        toast.success("Manager profile deleted successfully");
+        // Redirect or update UI as needed
+      },
+      onError: (error) => {
+        toast.error(`Error deleting manager profile: ${error}`);
+      },
+    });
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
     } else {
+      // No need to set user_id here, it will be handled in handleSubmit
       setFormData((prevFormData) => ({
         ...prevFormData,
-        user_id: currentUserId, // Set the user_id when creating a new profile
       }));
     }
-  }, [initialData, currentUserId]);
+  }, [initialData]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -62,12 +66,22 @@ export default function ManagerProfileForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ ...formData, id: initialData?.id, user_id: currentUserId }); // Include user_id when submitting
+    setIsSubmitting(true); // Start loading
+    // Include the profile ID if it exists, otherwise, it's a new profile
+    const dataToSubmit = {
+      ...formData,
+      id: initialData?.id,
+      user_id: currentUserId,
+    };
+    onSubmit(dataToSubmit);
+    setIsSubmitting(false); // Stop loading
   };
 
   const handleDelete = () => {
     if (initialData?.id) {
+      setIsDeleting(true); // Start loading
       deleteManagerProfile(initialData.id);
+      setIsDeleting(false); // Stop loading
     }
   };
 
@@ -82,6 +96,7 @@ export default function ManagerProfileForm({
           value={formData.name}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required // Add required attribute
         />
       </div>
       <div>
@@ -93,6 +108,7 @@ export default function ManagerProfileForm({
           value={formData.company_name}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required // Add required attribute
         />
       </div>
       <div>
@@ -104,6 +120,7 @@ export default function ManagerProfileForm({
           value={formData.company_email}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required // Add required attribute
         />
       </div>
       <div>
@@ -158,16 +175,22 @@ export default function ManagerProfileForm({
         <button
           type="submit"
           className="bg-blue-500 text-white rounded-md p-2 hover:bg-blue-700"
+          disabled={isSubmitting} // Disable button while submitting
         >
-          {initialData ? "Update Profile" : "Create Profile"}
+          {isSubmitting
+            ? "Submitting..."
+            : initialData
+            ? "Update Profile"
+            : "Create Profile"}
         </button>
         {initialData && (
           <button
             type="button"
             onClick={handleDelete}
             className="bg-red-500 text-white rounded-md p-2 hover:bg-red-700"
+            disabled={isDeleting} // Disable button while deleting
           >
-            Delete Profile
+            {isDeleting ? "Deleting..." : "Delete Profile"}
           </button>
         )}
       </div>

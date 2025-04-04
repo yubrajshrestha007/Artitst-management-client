@@ -98,8 +98,6 @@ export const useMyArtistProfileQuery = (isAuthenticated: boolean) => {
     queryFn: fetchMyArtistProfile,
     enabled: isAuthenticated, // Only fetch if logged in
     retry: false, // Disable retries
-    staleTime: Infinity, // Data is always fresh
-    cacheTime: Infinity,
     onError: (error) => {
       toast.error(error.message || "Failed to fetch artist profile");
     },
@@ -112,8 +110,6 @@ export const useMyManagerProfileQuery = (isAuthenticated: boolean) => {
     queryFn: fetchMyManagerProfile,
     enabled: isAuthenticated, // Only fetch if logged in
     retry: false, // Disable retries
-    staleTime: Infinity, // Data is always fresh
-    cacheTime: Infinity,
     onError: (error) => {
       toast.error(error.message || "Failed to fetch manager profile");
     },
