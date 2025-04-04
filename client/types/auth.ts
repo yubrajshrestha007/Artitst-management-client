@@ -99,5 +99,6 @@ export interface Music {
   artist_id?: string; // Foreign key to the artist profile
   genre: string;
   release_date: string | null;
+  artist_name: string;
   created_by_id?: string | null;
 }

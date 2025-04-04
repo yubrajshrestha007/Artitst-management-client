@@ -6,7 +6,7 @@ import {
   useUpdateMusicMutation,
 } from "@/shared/queries/music";
 import { Music } from "@/types/auth";
-import { useState, useEffect } from "react"; // Import useEffect
+import { useState, useEffect } from "react";
 import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +22,102 @@ import { CustomModal } from "@/components/ui/custom-modal";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
+// Separate component for the Music Form
+interface MusicFormProps {
+  formData: Music;
+  handleChange: (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => void;
+  isUpdating: boolean;
+  isCreating: boolean;
+  handleUpdateMusic: () => void;
+  handleCreateMusic: () => void;
+  handleCloseModal: () => void;
+  isUpdatingMutationLoading: boolean; // Add this prop
+  isCreatingMutationLoading: boolean; // Add this prop
+}
+
+const MusicForm = ({
+  formData,
+  handleChange,
+  isUpdating,
+  isCreating,
+  handleUpdateMusic,
+  handleCreateMusic,
+  handleCloseModal,
+  isUpdatingMutationLoading, // Use this prop
+  isCreatingMutationLoading, // Use this prop
+}: MusicFormProps) => {
+  return (
+    <div className="mt-2 px-7 py-3">
+      <label htmlFor="title">Title</label>
+      <Input
+        type="text"
+        id="title"
+        name="title"
+        value={formData.title}
+        onChange={handleChange}
+        className="border border-gray-300 rounded-md p-2 w-full"
+      />
+      <label htmlFor="album_name">Album Name</label>
+      <Input
+        type="text"
+        id="album_name"
+        name="album_name"
+        value={formData.album_name}
+        onChange={handleChange}
+        className="border border-gray-300 rounded-md p-2 w-full"
+      />
+      <label htmlFor="genre">Genre</label>
+      <Input
+        type="text"
+        id="genre"
+        name="genre"
+        value={formData.genre}
+        onChange={handleChange}
+        className="border border-gray-300 rounded-md p-2 w-full"
+      />
+      <label htmlFor="release_date">Release Date</label>
+      <Input
+        type="datetime-local"
+        id="release_date"
+        name="release_date"
+        value={formData.release_date || ""}
+        onChange={handleChange}
+        className="border border-gray-300 rounded-md p-2 w-full"
+      />
+      <div className="items-center px-4 py-3">
+        <Button
+          onClick={handleCloseModal}
+          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={isUpdating ? handleUpdateMusic : handleCreateMusic}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md ml-2"
+          disabled={isCreatingMutationLoading || isUpdatingMutationLoading} // Use the new props here
+        >
+          {isUpdating
+            ? isUpdatingMutationLoading
+              ? "Updating..."
+              : "Update"
+            : isCreating
+            ? "Create"
+            : "Creating.."}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const MusicList = () => {
   const { data: musicList, isLoading } = useMusicListQuery();
   const {
     mutate: createMusic,
-    isLoading: isCreating,
+    isLoading: isCreatingMutationLoading, // Rename this variable
   } = useCreateMusicMutation({
     onSuccess: () => {
       toast.success("Music created successfully!");
@@ -39,7 +130,7 @@ const MusicList = () => {
   });
   const {
     mutate: updateMusic,
-    isLoading: isUpdating,
+    isLoading: isUpdatingMutationLoading, // Rename this variable
   } = useUpdateMusicMutation({
     onSuccess: () => {
       toast.success("Music updated successfully!");
@@ -72,6 +163,7 @@ const MusicList = () => {
     album_name: "",
     genre: "",
     release_date: null,
+    artist_name: "artist_name",
     created_by_id: "",
   });
   const { data: profile, isLoading: isProfileLoading } =
@@ -84,6 +176,7 @@ const MusicList = () => {
       album_name: "",
       genre: "",
       release_date: null,
+      artist_name: "artist_name",
       created_by_id: profile?.id || "", // Set to artist profile id if available
     });
   };
@@ -105,7 +198,9 @@ const MusicList = () => {
   };
   const handleUpdateMusic = () => {
     if (selectedMusic?.id) {
-      updateMusic({ id: selectedMusic.id, data: formData });
+      const dataWithoutCreatedById = { ...formData }; // Keep the formData as is without destructuring
+      delete dataWithoutCreatedById.created_by_id; // Explicitly remove created_by_id if necessary
+      updateMusic({ id: selectedMusic.id, data: dataWithoutCreatedById });
     }
   };
   const handleDeleteMusic = (music: Music) => {
@@ -134,6 +229,7 @@ const MusicList = () => {
         album_name: music.album_name,
         genre: music.genre,
         release_date: music.release_date,
+        artist_name: music.artist_name,
         created_by_id: music.created_by_id, // Keep the existing created_by_id for updates
       });
     } else {
@@ -189,7 +285,7 @@ const MusicList = () => {
               <TableCell>{music.album_name}</TableCell>
               <TableCell>{music.genre}</TableCell>
               <TableCell>{music.release_date}</TableCell>
-              <TableCell>{music.created_by_id}</TableCell>
+              <TableCell>{music.artist_name}</TableCell>
               <TableCell className="text-right">
                 {/* Container for buttons */}
                 <div className="flex justify-end gap-2">
@@ -224,67 +320,17 @@ const MusicList = () => {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {isUpdatingMusic ? "Update Music" : "Create Music"}
               </h3>
-              <div className="mt-2 px-7 py-3">
-                <label htmlFor="title">Title</label>
-                <Input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  className="border border-gray-300 rounded-md p-2 w-full"
-                />
-                <label htmlFor="album_name">Album Name</label>
-                <Input
-                  type="text"
-                  id="album_name"
-                  name="album_name"
-                  value={formData.album_name}
-                  onChange={handleChange}
-                  className="border border-gray-300 rounded-md p-2 w-full"
-                />
-                <label htmlFor="genre">Genre</label>
-                <Input
-                  type="text"
-                  id="genre"
-                  name="genre"
-                  value={formData.genre}
-                  onChange={handleChange}
-                  className="border border-gray-300 rounded-md p-2 w-full"
-                />
-                <label htmlFor="release_date">Release Date</label>
-                <Input
-                  type="datetime-local"
-                  id="release_date"
-                  name="release_date"
-                  value={formData.release_date || ""}
-                  onChange={handleChange}
-                  className="border border-gray-300 rounded-md p-2 w-full"
-                />
-              </div>
-              <div className="items-center px-4 py-3">
-                <Button
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={
-                    isUpdatingMusic ? handleUpdateMusic : handleCreateMusic
-                  }
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md ml-2"
-                  disabled={isCreating || isUpdating}
-                >
-                  {isUpdatingMusic ? (
-                    isUpdating ? "Updating..." : "Update"
-                  ) : isCreating ? (
-                    "Creating..."
-                  ) : (
-                    "Create"
-                  )}
-                </Button>
-              </div>
+              <MusicForm
+                formData={formData}
+                handleChange={handleChange}
+                isUpdating={isUpdatingMusic}
+                isCreating={isCreatingMusic}
+                handleUpdateMusic={handleUpdateMusic}
+                handleCreateMusic={handleCreateMusic}
+                handleCloseModal={handleCloseModal}
+                isUpdatingMutationLoading={isUpdatingMutationLoading} // Pass the new prop
+                isCreatingMutationLoading={isCreatingMutationLoading} // Pass the new prop
+              />
             </div>
           </div>
         </div>

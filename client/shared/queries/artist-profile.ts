@@ -22,7 +22,7 @@ export const useArtistProfileByUserIdQuery = (userId: string) => {
     queryFn: () => fetchArtistProfileByUserId(userId),
     enabled: !!userId,
     retry: false, // Disable retries
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(error.message || "Failed to fetch artist profile by user ID");
     },
   });
@@ -34,7 +34,7 @@ export const useArtistProfileQuery = (id: string) => {
     queryFn: () => fetchArtistProfile(id),
     enabled: !!id,
     retry: false,
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(error.message || "Failed to fetch artist profile");
     },
   });
