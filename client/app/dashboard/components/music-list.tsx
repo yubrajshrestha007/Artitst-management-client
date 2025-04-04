@@ -6,7 +6,7 @@ import {
   useUpdateMusicMutation,
 } from "@/shared/queries/music";
 import { Music } from "@/types/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Import useEffect
 import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,13 +31,7 @@ const MusicList = () => {
     onSuccess: () => {
       toast.success("Music created successfully!");
       setIsModalOpen(false);
-      setFormData({
-        title: "",
-        album_name: "",
-        genre: "",
-        release_date: null,
-        created_by_id: "",
-      });
+      resetFormData();
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create music");
@@ -50,13 +44,7 @@ const MusicList = () => {
     onSuccess: () => {
       toast.success("Music updated successfully!");
       setIsModalOpen(false);
-      setFormData({
-        title: "",
-        album_name: "",
-        genre: "",
-        release_date: null,
-        created_by_id: "",
-      });
+      resetFormData();
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update music");
@@ -89,9 +77,30 @@ const MusicList = () => {
   const { data: profile, isLoading: isProfileLoading } =
     useMyArtistProfileQuery(true);
 
+  // Reset form data function
+  const resetFormData = () => {
+    setFormData({
+      title: "",
+      album_name: "",
+      genre: "",
+      release_date: null,
+      created_by_id: profile?.id || "", // Set to artist profile id if available
+    });
+  };
+
+  useEffect(() => {
+    // Update the form data's created_by_id when the profile data changes
+    if (profile) {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        created_by_id: profile.id || "",
+      }));
+    }
+  }, [profile]);
+
   const handleCreateMusic = () => {
     if (profile) {
-      createMusic({ ...formData, created_by_id: profile.user_id });
+      createMusic({ ...formData, created_by_id: profile.id }); // Use profile.id here
     }
   };
   const handleUpdateMusic = () => {
@@ -125,30 +134,18 @@ const MusicList = () => {
         album_name: music.album_name,
         genre: music.genre,
         release_date: music.release_date,
-        created_by_id: music.created_by_id,
+        created_by_id: music.created_by_id, // Keep the existing created_by_id for updates
       });
     } else {
       setIsCreatingMusic(true);
       setIsUpdatingMusic(false);
-      setFormData({
-        title: "",
-        album_name: "",
-        genre: "",
-        release_date: null,
-        created_by_id: "",
-      });
+      resetFormData();
     }
     setIsModalOpen(true);
   };
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setFormData({
-      title: "",
-      album_name: "",
-      genre: "",
-      release_date: null,
-      created_by_id: "",
-    });
+    resetFormData();
   };
   const handleChange = (
     e: React.ChangeEvent<
@@ -273,11 +270,19 @@ const MusicList = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={isUpdatingMusic ? handleUpdateMusic : handleCreateMusic}
+                  onClick={
+                    isUpdatingMusic ? handleUpdateMusic : handleCreateMusic
+                  }
                   className="px-4 py-2 bg-blue-500 text-white rounded-md ml-2"
                   disabled={isCreating || isUpdating}
                 >
-                  {isUpdatingMusic ? (isUpdating ? "Updating..." : "Update") : (isCreating ? "Creating..." : "Create")}
+                  {isUpdatingMusic ? (
+                    isUpdating ? "Updating..." : "Update"
+                  ) : isCreating ? (
+                    "Creating..."
+                  ) : (
+                    "Create"
+                  )}
                 </Button>
               </div>
             </div>
