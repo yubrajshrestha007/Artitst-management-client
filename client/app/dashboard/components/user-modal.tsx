@@ -183,6 +183,7 @@ export default function UserModal({
                   <FormControl>
                     <Input
                       type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       checked={field.value}
                       onChange={(e) => field.onChange(e.target.checked)}
                     />

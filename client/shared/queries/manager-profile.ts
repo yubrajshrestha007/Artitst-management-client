@@ -17,21 +17,52 @@ import {
 import { useInvalidateProfile } from "./profiles";
 import { getRoleFromToken } from "../api/api-utils";
 
-export const fetchManagers = async (): Promise<{
-  managers: ManagerProfile[];
-}> => {
-  const response = await fetchAllManagerProfiles();
-  return response;
+// Helper function for consistent error handling
+const handleManagerMutationError = (error: any) => {
+  const role = getRoleFromToken();
+  if (role !== "artist_manager") {
+    toast.error("Only manager can perform this action");
+    throw new Error("Only manager can perform this action");
+  }
+  toast.error(error.message || "An error occurred");
+  throw error; // Re-throw the error to propagate it
+};
+
+export const fetchManagers = async (): Promise<ManagerProfile[]> => {
+  try {
+    const response = await fetchAllManagerProfiles();
+    console.log("fetchManagers response:", response); // Add this line
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (!response || !response.managers) {
+      console.error("fetchManagers: Invalid response format:", response);
+      return [];
+    }
+    return response.managers; // Return the array directly
+  } catch (error) {
+    console.error("fetchManagers error:", error); // Add this line
+    toast.error("Failed to fetch managers");
+    throw error; // Re-throw the error to propagate it
+  }
 };
 
 export const useManagerProfileQuery = (id: string) => {
   return useQuery<ManagerProfile | null, Error>({
     queryKey: ["managerProfile", id],
-    queryFn: () => fetchManagerProfileApi(id),
+    queryFn: async () => {
+      try {
+        return await fetchManagerProfileApi(id);
+      } catch (error) {
+        toast.error("Failed to fetch manager profile");
+        throw error; // Re-throw the error to propagate it
+      }
+    },
     enabled: !!id,
     retry: false,
     onError: (error) => {
       toast.error(error.message || "Failed to fetch manager profile");
+      throw error; // Re-throw the error to propagate it
     },
   });
 };
@@ -52,14 +83,7 @@ export const useCreateManagerProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError: (error: any) => {
-      const role = getRoleFromToken();
-      if (role !== "artist_manager") {
-        toast.error("Only manager can create manager profile");
-        throw new Error("Only manager can create manager profile");
-      }
-      toast.error(error.message || "Failed to create manager profile");
-    },
+    onError: handleManagerMutationError,
   });
 };
 
@@ -79,14 +103,7 @@ export const useUpdateManagerProfileMutation = ({
         onSuccess(data);
       }
     },
-    onError: (error: any) => {
-      const role = getRoleFromToken();
-      if (role !== "artist_manager") {
-        toast.error("Only manager can update manager profile");
-        throw new Error("Only manager can update manager profile");
-      }
-      toast.error(error.message || "Failed to update manager profile");
-    },
+    onError: handleManagerMutationError,
   });
 };
 
@@ -106,26 +123,19 @@ export const useDeleteManagerProfileMutation = ({
         onSuccess();
       }
     },
-    onError: (error: any) => {
-      const role = getRoleFromToken();
-      if (role !== "artist_manager") {
-        toast.error("Only manager can delete manager profile");
-        throw new Error("Only manager can delete manager profile");
-      }
-      toast.error(error.message || "Failed to delete manager profile");
-    },
+    onError: handleManagerMutationError,
   });
 };
 
 export const useManagersQuery = () => {
-  return useQuery<{ managers: ManagerProfile[] }, Error>({
+  return useQuery<ManagerProfile[], Error>({ // Return ManagerProfile[] directly
     queryKey: ["managers"],
-    queryFn: fetchAllManagerProfiles,
+    queryFn: fetchManagers, // Use the improved fetchManagers function
     retry: false,
     onError: (error) => {
       console.log("Error fetching managers:", error);
       toast.error(error.message || "Failed to fetch managers");
+      throw error; // Re-throw the error to propagate it
     },
   });
 };
-export type { ManagerProfile };

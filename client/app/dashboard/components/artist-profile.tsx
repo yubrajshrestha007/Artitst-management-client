@@ -1,5 +1,5 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-profile.tsx
-"use client"
+"use client";
 import { useState, useEffect, useMemo } from "react";
 import { ArtistProfile } from "@/shared/queries/artist-profile";
 import { useUsersQuery } from "@/shared/queries/users";
@@ -47,11 +47,7 @@ export default function ArtistProfileForm({
   const currentUserId = usersData?.currentUserId || null;
 
   // Fetch artist profile by user ID
-  const {
-    data: artistProfileData,
-    isLoading: isArtistProfileLoading,
-    isError: isArtistProfileError,
-  } = useArtistProfileByUserIdQuery(
+  const { data: artistProfileData } = useArtistProfileByUserIdQuery(
     currentUserId ? currentUserId.toString() : "",
     {
       enabled: !!currentUserId, // Only fetch if currentUserId is available
@@ -96,10 +92,9 @@ export default function ArtistProfileForm({
       try {
         // Fetch managers
         const managersResult = await memoizedFetchManagers();
-
-        if (managersResult.data?.managers) {
+        if (managersResult) {
           setAllManagers(
-            managersResult.data.managers.map((manager) => ({
+            managersResult.map((manager) => ({
               id: manager.id || "",
               name: manager.name,
             }))
@@ -146,6 +141,7 @@ export default function ArtistProfileForm({
         ...formData,
         id: initialData?.id || artistProfileData?.id,
         user_id: currentUserId,
+        manager_id: formData.manager_id || null,
       });
     } catch (error) {
       toast.error("Error submitting the form.");
@@ -276,12 +272,14 @@ export default function ArtistProfileForm({
               <div className="mb-2">No Manager Assigned</div>
             )}
 
-            {currentManager || availableManagers.length > 0 ? (
+            {(currentManager || availableManagers.length > 0) && (
               <select
                 id="manager_id"
                 name="manager_id"
                 value={formData.manager_id || ""}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange(e);
+                }}
                 className="border border-gray-300 rounded-md p-2 w-full"
               >
                 <option value="">
@@ -295,12 +293,6 @@ export default function ArtistProfileForm({
                   )
                 )}
               </select>
-            ) : (
-              <div>
-                {currentManager
-                  ? "No other managers available."
-                  : "No managers available."}
-              </div>
             )}
           </>
         )}

@@ -1,8 +1,8 @@
 // /home/mint/Desktop/ArtistMgntFront/client/hooks/auth.ts
-"use client";
+"use client"; // Add this line to mark it as a Client Component
+
 import { decodeAccessToken } from "@/lib/jwt-lib";
 import { useMemo, useEffect, useState } from "react";
-import Cookies from "js-cookie";
 
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

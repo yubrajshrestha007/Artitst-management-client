@@ -30,18 +30,21 @@ import {
   useUpdateArtistProfileMutation,
   useArtistProfileListQuery,
 } from "@/shared/queries/artist-profile";
-import ArtistProfileForm from "./artist-profile";
 import {
   useCreateManagerProfileMutation,
   useDeleteManagerProfileMutation,
   useUpdateManagerProfileMutation,
+  useManagersQuery, // Import the new query
 } from "@/shared/queries/manager-profile";
-import ManagerProfileForm from "./manager-profile";
 
 interface UserManagementTableProps {
   currentUserRole: string;
   type?: "user" | "artist" | "manager";
 }
+
+// Define types for the data expected by each mutation
+type CreateData = Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
+type UpdateData = { id: string; data: Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile> };
 
 export default function UserManagementTable({
   currentUserRole,
@@ -61,6 +64,12 @@ export default function UserManagementTable({
   const updateArtistProfileMutation = useUpdateArtistProfileMutation();
   const deleteArtistProfileMutation = useDeleteArtistProfileMutation();
 
+  const {
+    data: managerProfileData,
+    isLoading: isManagerProfilesLoading,
+  } = useManagersQuery(); // Use the new query
+  const managerProfiles = managerProfileData || [];
+
   const createManagerProfileMutation = useCreateManagerProfileMutation();
   const updateManagerProfileMutation = useUpdateManagerProfileMutation();
   const deleteManagerProfileMutation = useDeleteManagerProfileMutation();
@@ -77,9 +86,13 @@ export default function UserManagementTable({
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Combine loading states
+  const isLoading = isUsersLoading || isArtistProfilesLoading || isManagerProfilesLoading;
+
   const invalidateQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["users"] });
     queryClient.invalidateQueries({ queryKey: ["artist-profiles"] });
+    queryClient.invalidateQueries({ queryKey: ["managers"] });
   }, [queryClient]);
 
   useEffect(() => {
@@ -89,26 +102,37 @@ export default function UserManagementTable({
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
+  // Helper function for common mutation error handling
+  const handleMutationError = (error: any, action: string, itemType: string) => {
+    toast.error(`Error ${action} ${itemType}: ${error.message}`);
+  };
+
+  // Helper function for common mutation finally block
+  const handleMutationFinally = () => {
+    setIsCreating(false);
+    setIsUpdating(false);
+    setIsModalOpen(false);
+    setSelectedItem(null);
+  };
+
   const handleCreate = useCallback(
-    async (data: any) => {
+    async (data: CreateData) => {
       setIsCreating(true);
       try {
         if (type === "user") {
-          await createUserMutation.mutateAsync(data);
+          await createUserMutation.mutateAsync(data as Partial<User>);
           toast.success("User created successfully!");
         } else if (type === "artist") {
-          await createArtistProfileMutation.mutateAsync(data);
+          await createArtistProfileMutation.mutateAsync(data as Partial<ArtistProfile>);
           toast.success("Artist profile created successfully!");
         } else if (type === "manager") {
-          await createManagerProfileMutation.mutateAsync(data);
+          await createManagerProfileMutation.mutateAsync(data as Partial<ManagerProfile>);
           toast.success("Manager profile created successfully!");
         }
       } catch (error) {
-        toast.error(`Error creating ${type}: ${error.message}`);
+        handleMutationError(error, "creating", type || "item");
       } finally {
-        setIsCreating(false);
-        setIsModalOpen(false);
-        setSelectedItem(null);
+        handleMutationFinally();
       }
     },
     [
@@ -120,25 +144,23 @@ export default function UserManagementTable({
   );
 
   const handleUpdate = useCallback(
-    async (id: string, data: any) => {
+    async (id: string, data: UpdateData["data"]) => {
       setIsUpdating(true);
       try {
         if (type === "user") {
-          await updateUserMutation.mutateAsync({ id, data });
+          await updateUserMutation.mutateAsync({ id, data: data as Partial<User> });
           toast.success("User updated successfully!");
         } else if (type === "artist") {
-          await updateArtistProfileMutation.mutateAsync({ id, data });
+          await updateArtistProfileMutation.mutateAsync({ id, data: data as Partial<ArtistProfile> });
           toast.success("Artist profile updated successfully!");
         } else if (type === "manager") {
-          await updateManagerProfileMutation.mutateAsync({ id, data });
+          await updateManagerProfileMutation.mutateAsync({ id, data: data as Partial<ManagerProfile> });
           toast.success("Manager profile updated successfully!");
         }
       } catch (error) {
-        toast.error(`Error updating ${type}: ${error.message}`);
+        handleMutationError(error, "updating", type || "item");
       } finally {
-        setIsUpdating(false);
-        setIsModalOpen(false);
-        setSelectedItem(null);
+        handleMutationFinally();
       }
     },
     [
@@ -163,7 +185,7 @@ export default function UserManagementTable({
           toast.success("Manager profile deleted successfully!");
         }
       } catch (error) {
-        toast.error(`Error deleting ${type}: ${error.message}`);
+        handleMutationError(error, "deleting", type || "item");
       } finally {
         setIsDeleteDialogOpen(false);
         setSelectedItem(null);
@@ -216,40 +238,45 @@ export default function UserManagementTable({
     setSelectedItem(null);
   }, []);
 
-  if (isUsersLoading || isArtistProfilesLoading) {
+  if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  const renderTable = () => {
-    const data =
-      type === "user"
-        ? filteredUsers
-        : type === "artist"
-        ? artistProfiles
-        : users.filter((user) => user.role === "artist_manager");
-    const columns =
-      type === "user"
-        ? [
-            { key: "id", label: "ID" },
-            { key: "email", label: "Email" },
-            { key: "role", label: "Role" },
-            { key: "is_active", label: "Status" },
-          ]
-        : type === "artist"
-        ? [
-            { key: "name", label: "Name" },
-            { key: "gender", label: "Gender" },
-            { key: "address", label: "Address" },
-            { key: "date_of_birth", label: "Date of Birth" },
-            { key: "first_release_year", label: "First Release Year" },
-            { key: "no_of_albums_released", label: "Number of Albums Released" },
-          ]
-        : [
-            { key: "email", label: "Email" },
-            { key: "company_name", label: "Company Name" },
-            { key: "company_email", label: "Company Email" },
-          ];
+  // Helper functions to render each type of table
+  const renderUserTable = () => {
+    const columns = [
+      { key: "id", label: "ID" },
+      { key: "email", label: "Email" },
+      { key: "role", label: "Role" },
+      { key: "is_active", label: "Status" },
+    ];
+    return renderTable(filteredUsers, columns);
+  };
 
+  const renderArtistTable = () => {
+    const columns = [
+      { key: "name", label: "Name" },
+      { key: "gender", label: "Gender" },
+      { key: "address", label: "Address" },
+      { key: "date_of_birth", label: "Date of Birth" },
+      { key: "first_release_year", label: "First Release Year" },
+      { key: "no_of_albums_released", label: "Number of Albums Released" },
+    ];
+    return renderTable(artistProfiles, columns);
+  };
+
+  const renderManagerTable = () => {
+    const columns = [
+      { key: "name", label: "Name" },
+      { key: "company_name", label: "Company Name" },
+      { key: "company_email", label: "Company Email" },
+      { key: "company_phone", label: "Company Phone" },
+    ];
+    return renderTable(managerProfiles, columns);
+  };
+
+  // Helper function to render the table
+  const renderTable = (data: any[], columns: any[]) => {
     return (
       <>
         <div className="flex justify-between items-center mb-4">
@@ -257,8 +284,8 @@ export default function UserManagementTable({
             {type === "user"
               ? "User List"
               : type === "artist"
-              ? "Artist Profiles"
-              : "Manager Profiles"}
+                ? "Artist Profiles"
+                : "Manager Profiles"}
           </h2>
           <div>
             <div className="relative">
@@ -271,14 +298,14 @@ export default function UserManagementTable({
               />
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             </div>
-            {type !== "artist_manager" && (
+            {currentUserRole !== "artist_manager" && (
               <Button onClick={() => handleOpenModal(null)}>
                 Create{" "}
                 {type === "user"
                   ? "User"
                   : type === "artist"
-                  ? "Artist Profile"
-                  : "Manager Profile"}
+                    ? "Artist Profile"
+                    : "Manager Profile"}
               </Button>
             )}
           </div>
@@ -297,7 +324,15 @@ export default function UserManagementTable({
               <TableRow key={item.id}>
                 {columns.map((col) => (
                   <TableCell key={`${item.id}-${col.key}`}>
-                    {item[col.key]}
+                    {col.key === "is_active" ? (
+                      item.is_active ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )
+                    ) : (
+                      item[col.key]
+                    )}
                   </TableCell>
                 ))}
                 <TableCell className="text-right">
@@ -330,12 +365,12 @@ export default function UserManagementTable({
     <>
       {currentUserRole === "super_admin" && (
         <>
-          {type === "user" && renderTable()}
-          {type === "artist" && renderTable()}
-          {type === "manager" && renderTable()}
+          {type === "user" && renderUserTable()}
+          {type === "artist" && renderArtistTable()}
+          {type === "manager" && renderManagerTable()}
         </>
       )}
-      {currentUserRole === "artist_manager" && type === "artist" && renderTable()}
+      {currentUserRole === "artist_manager" && type === "artist" && renderArtistTable()}
       {currentUserRole === "artist" && <MusicList />}
       <UserModal
         isOpen={isModalOpen}

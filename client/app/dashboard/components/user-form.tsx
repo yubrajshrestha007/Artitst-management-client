@@ -1,7 +1,39 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/user-form.tsx
 import { User } from "@/types/auth";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useUsersQuery } from "@/shared/queries/users";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, XCircle } from "lucide-react";
+
+// Define a Zod schema for form validation
+const userFormSchema = z.object({
+  id: z.string().optional(),
+  email: z.string().email().optional(),
+  is_active: z.boolean(),
+  role: z.enum(["artist", "artist_manager"]),
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
   onSubmit: (data: Partial<User>) => void;
@@ -11,107 +43,124 @@ interface UserFormProps {
 export default function UserForm({ onSubmit, initialData }: UserFormProps) {
   const { data: usersData } = useUsersQuery();
   const currentUserRole = usersData?.currentUserRole || "";
-  const [formData, setFormData] = useState<Partial<User>>({});
-  const [isEditMode, setIsEditMode] = useState(false);
+  const isEditMode = !!initialData;
+
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: {
+      is_active: false,
+      role: currentUserRole === "artist_manager" ? "artist" : "artist_manager",
+      ...initialData,
+    },
+  });
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
-      setIsEditMode(true);
-    } else {
-      setFormData({
-        role: currentUserRole === "artist_manager" ? "artist" : "",
-      });
-      setIsEditMode(false);
+      form.reset(initialData);
     }
-  }, [initialData, currentUserRole]);
+  }, [initialData, form]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleSubmit = (values: UserFormValues) => {
+    const dataToSubmit: Partial<User> = { ...values };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Include all data in the dataToSubmit object
-    const dataToSubmit: Partial<User> = { ...formData };
-
-    // Remove password and confirm_password if in edit mode
     if (isEditMode) {
-      delete dataToSubmit.password;
-      delete dataToSubmit.confirm_password;
-      delete dataToSubmit.email; //Added to prevent email update
-      delete dataToSubmit.name; //Added to prevent name update
+      delete dataToSubmit.email;
     }
-
     onSubmit(dataToSubmit);
   };
 
-  // Helper function to check if the user being edited is an artist
-  const isEditingArtist = () => {
-    return isEditMode && formData.role === "artist";
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {formData.id && (
-        <div>
-          <label htmlFor="id">Id</label>
-          <input
-            type="text"
-            id="id"
-            name="id"
-            value={formData.id}
-            readOnly
-            className="border border-gray-300 rounded-md p-2 w-full"
-          />
-        </div>
-      )}
-      <div>
-        <label htmlFor="email">Email</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          value={formData.email || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full"
-          readOnly
-        />
-      </div>
-      <div>
-        <label htmlFor="is_active">Status</label>
-        <select
-          id="is_active"
-          name="is_active"
-          value={formData.is_active !== undefined ? formData.is_active.toString() : ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full"
-        >
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="role">Role</label>
-        <select
-          id="role"
-          name="role"
-          value={formData.role || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full"
-        >
-          <option value="artist">Artist</option>
-          <option value="artist_manager">Artist Manager</option>
-        </select>
-      </div>
-      <button
-        type="submit"
-        className="bg-blue-500 text-white rounded-md p-2 hover:bg-blue-700"
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(handleSubmit)}
+        className="flex flex-col gap-4"
       >
-        Submit
-      </button>
-    </form>
+        {form.watch("id") && (
+          <FormField
+            control={form.control}
+            name="id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Id</FormLabel>
+                <FormControl>
+                  <Input type="text" readOnly {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        )}
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" readOnly {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="is_active"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <FormControl>
+                <Select
+                  onValueChange={(value) => field.onChange(value === "true")}
+                  defaultValue={field.value.toString()}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">
+                      <Badge variant="outline" className="text-green-500">
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Active
+                      </Badge>
+                    </SelectItem>
+                    <SelectItem value="false">
+                      <Badge variant="outline" className="text-red-500">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Inactive
+                      </Badge>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Role</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="artist">Artist</SelectItem>
+                  <SelectItem value="artist_manager">Artist Manager</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
   );
 }
