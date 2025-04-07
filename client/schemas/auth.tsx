@@ -15,3 +15,11 @@ export const registerSchema = z.object({
   message: "Passwords do not match",
   path: ["confirm_password"], // Changed to confirm_password
 });
+
+export const userSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  confirm_password: z.string().min(8),
+  role: z.string(),
+  is_active: z.boolean(),
+});

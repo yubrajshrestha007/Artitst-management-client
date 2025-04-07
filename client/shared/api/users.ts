@@ -65,6 +65,19 @@ export const fetchUsers = async (access: string): Promise<UserQueryResponse> => 
   return { users, currentUserRole };
 };
 
+// New function to fetch a single user by ID
+export const fetchUser = async (access: string, id: string): Promise<User | null> => {
+  try {
+    return await apiRequest(`users/${id}/`, "GET", access);
+  } catch (error) {
+    // Handle 404 or other errors gracefully
+    if (error instanceof Error && error.message.includes("404")) {
+      return null;
+    }
+    throw error;
+  }
+};
+
 export const createUser = async (
   access: string,
   data: Partial<User>

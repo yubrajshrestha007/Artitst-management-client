@@ -1,7 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/shared/api/manager-profile.ts
 import { ManagerProfile } from "@/types/auth";
-import Cookies from "js-cookie";
-import { apiRequest } from "./api-utils";
+import { apiRequest ,getHeaders } from "./api-utils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -9,13 +8,6 @@ if (!BASE_URL) {
   throw new Error("NEXT_PUBLIC_API_URL is not defined in .env.local");
 }
 
-const getHeaders = () => {
-  const accessToken = Cookies.get("access");
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${accessToken}`,
-  };
-};
 
 export const fetchManagerProfile = async (id: string): Promise<ManagerProfile> => {
   const response = await fetch(`${BASE_URL}manager-profile/${id}/`, {
@@ -42,6 +34,7 @@ export const updateManagerProfile = async (data: Partial<ManagerProfile>): Promi
   if (!data.id) {
     throw new Error("Manager profile ID is required for update");
   }
+  console.log("Data being sent to apiRequest:", data);
   return apiRequest<ManagerProfile>(`manager-profile/${data.id}/`, "PUT", data)
     .then((result) => {
       if (!result) {
@@ -50,6 +43,7 @@ export const updateManagerProfile = async (data: Partial<ManagerProfile>): Promi
       return result;
     });
 };
+
 
 
 

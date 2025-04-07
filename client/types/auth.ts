@@ -76,8 +76,6 @@ export interface ManagerProfile {
   gender: string;
   address: string;
   date_of_birth: string | null;
-  user_id: string | null;
-  manager_id?: string;
 }
 export interface ArtistProfile {
   id?: string;

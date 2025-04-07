@@ -1,5 +1,4 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/(profile)/artist/page.tsx
-"use client";
 import DashboardLayout from "@/app/dashboard/components/dashboard-layout";
 import DashboardHeader from "@/app/dashboard/components/dashboard-headers";
 import ArtistProfileForm from "@/app/dashboard/components/artist-profile";
@@ -10,18 +9,15 @@ import {
 } from "@/shared/queries/artist-profile";
 import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/auth";
 
 export default function ArtistProfilePage() {
-  const router = useRouter();
   const { isAuthenticated, role } = useAuth(); // Use the new hook
   const { data: profile, isLoading: myProfileLoading } =
     useMyArtistProfileQuery(isAuthenticated); // Call the hook unconditionally
   const { mutate: createArtistProfile } = useCreateArtistProfileMutation({
     onSuccess: () => {
       toast.success("Artist profile created successfully!");
-      router.push("/dashboard");
     },
     onError: (error) => {
       toast.error(`Error creating artist profile: ${error.message}`);
@@ -30,7 +26,6 @@ export default function ArtistProfilePage() {
   const { mutate: updateArtistProfile } = useUpdateArtistProfileMutation({
     onSuccess: () => {
       toast.success("Artist profile updated successfully!");
-      router.push("/dashboard");
     },
     onError: (error) => {
       toast.error(`Error updating artist profile: ${error.message}`);

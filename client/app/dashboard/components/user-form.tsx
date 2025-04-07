@@ -41,6 +41,8 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
     if (isEditMode) {
       delete dataToSubmit.password;
       delete dataToSubmit.confirm_password;
+      delete dataToSubmit.email; //Added to prevent email update
+      delete dataToSubmit.name; //Added to prevent name update
     }
 
     onSubmit(dataToSubmit);
@@ -75,53 +77,17 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
           value={formData.email || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          readOnly={isEditMode}
+          readOnly
         />
       </div>
-      {!isEditMode && (
-        <>
-          <div>
-            <label htmlFor="name">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password || ""}
-              onChange={handleChange}
-              className="border border-gray-300 rounded-md p-2 w-full"
-            />
-          </div>
-          <div>
-            <label htmlFor="name">confirm Password</label>
-            <input
-              type="password"
-              id="confirm_password"
-              name="confirm_password"
-              value={formData.confirm_password || ""}
-              onChange={handleChange}
-              className="border border-gray-300 rounded-md p-2 w-full"
-            />
-          </div>
-        </>
-      )}
       <div>
         <label htmlFor="is_active">Status</label>
         <select
           id="is_active"
           name="is_active"
-          value={
-            formData.is_active !== undefined
-              ? formData.is_active.toString()
-              : ""
-          }
+          value={formData.is_active !== undefined ? formData.is_active.toString() : ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          // Updated disabled condition
-          disabled={
-            isEditMode &&
-            currentUserRole === "artist_manager" &&
-            !isEditingArtist()
-          }
         >
           <option value="true">Active</option>
           <option value="false">Inactive</option>
@@ -135,15 +101,9 @@ export default function UserForm({ onSubmit, initialData }: UserFormProps) {
           value={formData.role || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          disabled={isEditMode && currentUserRole === "artist_manager"}
         >
-          <option value="">Select a role</option>
           <option value="artist">Artist</option>
-          {currentUserRole === "super_admin" && (
-            <>
-              <option value="artist_manager">Artist Manager</option>
-            </>
-          )}
+          <option value="artist_manager">Artist Manager</option>
         </select>
       </div>
       <button

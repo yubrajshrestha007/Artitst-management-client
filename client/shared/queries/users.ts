@@ -9,9 +9,11 @@ import {
   deleteUser,
   fetchUsers,
   updateUser,
+  fetchUser, // Import the new function
 } from "@/shared/api/users";
 import { User, UserQueryResponse } from "@/types/auth";
 import Cookies from "js-cookie";
+import { toast } from "sonner";
 
 export const useUsersQuery = () => {
   const access = Cookies.get("access");
@@ -37,10 +39,20 @@ export const useUpdateUserMutation = () => {
   const queryClient = useQueryClient();
   const access = Cookies.get("access") || "";
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) =>
-      updateUser(access, id, data),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<User> }) => {
+      const existingUser = await fetchUser(access, id);
+      if (existingUser) {
+        return updateUser(access, id, data);
+      } else {
+        return createUser(access, data);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User updated successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(`Error updating user: ${error.message}`);
     },
   });
 };

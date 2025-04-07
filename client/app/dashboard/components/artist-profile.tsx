@@ -1,4 +1,5 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-profile.tsx
+"use client"
 import { useState, useEffect, useMemo } from "react";
 import { ArtistProfile } from "@/shared/queries/artist-profile";
 import { useUsersQuery } from "@/shared/queries/users";

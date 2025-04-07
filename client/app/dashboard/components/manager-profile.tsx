@@ -1,10 +1,9 @@
-// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/manager-profile.tsx
 import { useState, useEffect } from "react";
 import { ManagerProfile } from "@/shared/queries/manager-profile";
 import { useUsersQuery } from "@/shared/queries/users";
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
-import { isValid, parseISO } from "date-fns"; // Import date-fns functions
+import { isValid, parseISO } from "date-fns";
 
 interface ManagerProfileFormProps {
   onSubmit: (data: ManagerProfile) => void;
@@ -23,32 +22,36 @@ export default function ManagerProfileForm({
     gender: "",
     address: "",
     date_of_birth: null,
-    user_id: null,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false); // Add loading state
-  const [isDeleting, setIsDeleting] = useState(false); // Add loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const { data: usersData } = useUsersQuery();
-  const currentUserId = usersData?.currentUserId || null;
-  const { mutate: deleteManagerProfile, isLoading: isDeleteLoading } =
-    useDeleteManagerProfileMutation({
-      onSuccess: () => {
-        toast.success("Manager profile deleted successfully");
-        // Redirect or update UI as needed
-      },
-      onError: (error) => {
-        toast.error(`Error deleting manager profile: ${error}`);
-      },
-    });
+  const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
+    onSuccess: () => {
+      toast.success("Manager profile deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.message || "Error deleting manager profile"
+      );
+    },
+  });
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({ ...initialData });
     } else {
-      // No need to set user_id here, it will be handled in handleSubmit
-      setFormData((prevFormData) => ({
-        ...prevFormData,
-      }));
+      setFormData({
+        name: "",
+        company_name: "",
+        company_email: "",
+        company_phone: "",
+        gender: "",
+        address: "",
+        date_of_birth: null,
+      });
     }
   }, [initialData]);
 
@@ -62,26 +65,43 @@ export default function ManagerProfileForm({
       ...prevFormData,
       [name]: value,
     }));
+    if (name === "date_of_birth") {
+      setDateError(null);
+      if (value) {
+        const parsedDate = parseISO(value);
+        if (!isValid(parsedDate)) {
+          setDateError("Invalid date format");
+        }
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true); // Start loading
-    // Include the profile ID if it exists, otherwise, it's a new profile
-    const dataToSubmit = {
-      ...formData,
-      id: initialData?.id,
-      user_id: currentUserId,
+    setIsSubmitting(true);
+
+    // Create a new object with only the fields expected by the backend for an update
+    const dataToSubmit: Partial<ManagerProfile> = {
+      name: formData.name,
+      company_name: formData.company_name,
+      company_email: formData.company_email,
+      company_phone: formData.company_phone,
+      gender: formData.gender,
+      address: formData.address,
+      date_of_birth: formData.date_of_birth,
+      id: initialData?.id, // Include the id for updates
     };
-    onSubmit(dataToSubmit);
-    setIsSubmitting(false); // Stop loading
+    console.log("formData:", formData);
+    console.log("dataToSubmit:", dataToSubmit);
+    console.log("Data being sent to onSubmit:", dataToSubmit);
+    onSubmit(dataToSubmit as ManagerProfile);
+    setIsSubmitting(false);
   };
 
   const handleDelete = () => {
     if (initialData?.id) {
-      setIsDeleting(true); // Start loading
+      setIsDeleting(true);
       deleteManagerProfile(initialData.id);
-      setIsDeleting(false); // Stop loading
     }
   };
 
@@ -96,7 +116,7 @@ export default function ManagerProfileForm({
           value={formData.name}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          required // Add required attribute
+          required
         />
       </div>
       <div>
@@ -108,7 +128,7 @@ export default function ManagerProfileForm({
           value={formData.company_name}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          required // Add required attribute
+          required
         />
       </div>
       <div>
@@ -120,7 +140,7 @@ export default function ManagerProfileForm({
           value={formData.company_email}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
-          required // Add required attribute
+          required
         />
       </div>
       <div>
@@ -132,6 +152,7 @@ export default function ManagerProfileForm({
           value={formData.company_phone}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required
         />
       </div>
       <div>
@@ -158,6 +179,7 @@ export default function ManagerProfileForm({
           value={formData.address}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
+          required
         />
       </div>
       <div>
@@ -170,12 +192,13 @@ export default function ManagerProfileForm({
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
         />
+        {dateError && <p className="text-red-500">{dateError}</p>}
       </div>
       <div className="flex justify-between">
         <button
           type="submit"
           className="bg-blue-500 text-white rounded-md p-2 hover:bg-blue-700"
-          disabled={isSubmitting} // Disable button while submitting
+          disabled={isSubmitting || !!dateError}
         >
           {isSubmitting
             ? "Submitting..."
@@ -188,7 +211,7 @@ export default function ManagerProfileForm({
             type="button"
             onClick={handleDelete}
             className="bg-red-500 text-white rounded-md p-2 hover:bg-red-700"
-            disabled={isDeleting} // Disable button while deleting
+            disabled={isDeleting}
           >
             {isDeleting ? "Deleting..." : "Delete Profile"}
           </button>

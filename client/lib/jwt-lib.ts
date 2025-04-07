@@ -1,9 +1,10 @@
-// /home/mint/Desktop/ArtistMgntFront/client/lib/jwt-utils.ts
-import {jwtDecode} from "jwt-decode";
+// /home/mint/Desktop/ArtistMgntFront/client/lib/jwt-lib.ts
+import { jwtDecode, JwtPayload } from "jwt-decode";
 import Cookies from "js-cookie";
 
-interface DecodedToken {
+interface DecodedToken extends JwtPayload {
   email: string;
+  role: string;
   exp: number;
   iat: number;
   user_id: number;

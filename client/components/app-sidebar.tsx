@@ -8,6 +8,8 @@ import {
   SquareTerminal,
   LogOut,
   User,
+  Users,
+  UserCog,
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -26,14 +28,18 @@ import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { decodeAccessToken } from "@/lib/jwt-lib";
-import { useMyArtistProfileQuery, useMyManagerProfileQuery } from "@/shared/queries/profiles";
+import {
+  useMyArtistProfileQuery,
+  useMyManagerProfileQuery,
+} from "@/shared/queries/profiles";
+import { useAuth } from "@/hooks/auth";
 
 export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
+  const { role, name, email, isAuthenticated } = useAuth();
   const [user, setUser] = useState<{
     name: string;
     email: string;
@@ -46,44 +52,30 @@ export function AppSidebar({
     }[]
   >([]);
 
-  const decodedToken = useMemo(() => decodeAccessToken(), []);
-  const isAuthenticated = !!decodedToken;
-
   const { data: artistProfileData } = useMyArtistProfileQuery(isAuthenticated);
   const { data: managerProfileData } = useMyManagerProfileQuery(isAuthenticated);
 
-  const updateUserData = useCallback(
-    (profileData: any, userRole: string) => {
-      if (profileData) {
-        setUser((prevUser) => ({
-          ...prevUser,
-          name: profileData.name,
-        }));
-        setTeams((prevTeams) =>
-          prevTeams.map((team) => ({ ...team, name: profileData.name }))
-        );
-      }
-    },
-    []
-  );
+  const updateUserData = useCallback((profileData: any) => {
+    if (profileData && profileData.name) {
+      setUser((prevUser) => ({
+        ...prevUser,
+        name: profileData.name,
+      }));
+      setTeams((prevTeams) =>
+        prevTeams.map((team) => ({ ...team, name: profileData.name }))
+      );
+    }
+  }, []);
 
   useEffect(() => {
-    const userRole = Cookies.get("role") || null;
-    const userNameFromCookie = Cookies.get("name") || null;
     const userAvatar = "/avatars/shadcn.jpg";
-    let userEmail: string | null = null;
-    let userName: string | null = userNameFromCookie;
+    let userName: string | null = name;
+    let userEmail: string | null = email;
 
-    if (decodedToken) {
-      userEmail = decodedToken.email;
-    }
-
-    setRole(userRole);
-
-    if (userRole === "artist") {
-      updateUserData(artistProfileData, userRole);
-    } else if (userRole === "artist_manager") {
-      updateUserData(managerProfileData, userRole);
+    if (role === "artist") {
+      updateUserData(artistProfileData);
+    } else if (role === "artist_manager") {
+      updateUserData(managerProfileData);
     }
 
     setUser((prevUser) => ({
@@ -98,7 +90,7 @@ export function AppSidebar({
         logo: GalleryVerticalEnd,
       },
     ]);
-  }, [decodedToken, artistProfileData, managerProfileData, updateUserData]);
+  }, [artistProfileData, managerProfileData, updateUserData, name, email, role]);
 
   const handleLogout = () => {
     Cookies.remove("access");
@@ -111,52 +103,52 @@ export function AppSidebar({
 
   return (
     <Sidebar {...props}>
-      <SidebarHeader>
-        {teams && <TeamSwitcher teams={teams} />}
-      </SidebarHeader>
+      <SidebarHeader>{teams && <TeamSwitcher teams={teams} />}</SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => router.push("/dashboard")}
-              isActive={pathname === "/dashboard"}
-            >
+            <SidebarMenuButton onClick={() => router.push("/dashboard")}>
               <SquareTerminal />
               Dashboard
             </SidebarMenuButton>
           </SidebarMenuItem>
           {role === "artist" && (
             <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => router.push("/artist")}
-                isActive={pathname === "/artist"}
-              >
+              <SidebarMenuButton onClick={() => router.push("/dashboard/artists")}>
                 <User />
-                Artist Profile
+                Music List
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           {role === "artist_manager" && (
             <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => router.push("/manager")}
-                isActive={pathname === "/manager"}
-              >
-                <Settings2 />
-                Manager Profile
+              <SidebarMenuButton onClick={() => router.push("/dashboard/managers")}>
+                <UserCog />
+                Artist List
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           {role === "super_admin" && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => router.push("/dashboard")}
-                isActive={pathname === "/dashboard"}
-              >
-                <Settings2 />
-                User List
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => router.push("/dashboard/users")}>
+                  <Users />
+                  User List
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => router.push("/dashboard/artists")}>
+                  <User />
+                  Artist Profiles
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => router.push("/dashboard/managers")}>
+                  <UserCog />
+                  Manager Profiles
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
           )}
         </SidebarMenu>
       </SidebarContent>
@@ -166,6 +158,7 @@ export function AppSidebar({
         {/* Display User Role */}
         {user && role && (
           <div className="px-4 pb-2 text-xs text-muted-foreground">
+
             Role: {role.replace(/_/g, " ")}
           </div>
         )}
