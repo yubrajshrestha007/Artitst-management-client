@@ -1,6 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/dashboard-layout.tsx
 "use client";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarClient } from "@/components/ui/app-sidebar-client"; // Import the client wrapper
 import {
   SidebarInset,
   SidebarProvider,
@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (pathname === "/permission-denied") {
     return (
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebarClient />
         <SidebarInset>
           <PermissionDenied />
         </SidebarInset>
@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ) {
     return (
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebarClient />
         <SidebarInset>
           <PermissionDenied />
         </SidebarInset>
@@ -57,7 +57,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebarClient />
       <SidebarInset>
         <Toaster position="top-right" richColors /> {/* Moved Toaster here */}
         {children}

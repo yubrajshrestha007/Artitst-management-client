@@ -1,4 +1,4 @@
-// /home/mint/Desktop/ArtistMgntFront/client/components/app-sidebar.tsx
+// app-sidebar.tsx
 "use client";
 
 import * as React from "react";
@@ -32,14 +32,24 @@ import {
   useMyArtistProfileQuery,
   useMyManagerProfileQuery,
 } from "@/shared/queries/profiles";
-import { useAuth } from "@/hooks/auth";
+import { NavUserClient } from "./nav-user-client";
+
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  role: string | null;
+  name: string | null;
+  email: string | null;
+  isAuthenticated: boolean;
+}
 
 export function AppSidebar({
+  role,
+  name,
+  email,
+  isAuthenticated,
   ...props
-}: React.ComponentProps<typeof Sidebar>) {
+}: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role, name, email, isAuthenticated } = useAuth();
   const [user, setUser] = useState<{
     name: string;
     email: string;
@@ -154,11 +164,10 @@ export function AppSidebar({
       </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter>
-        {user && <NavUser user={user} />}
+        {user && <NavUserClient user={user} />} {/* Use NavUserClient here */}
         {/* Display User Role */}
         {user && role && (
           <div className="px-4 pb-2 text-xs text-muted-foreground">
-
             Role: {role.replace(/_/g, " ")}
           </div>
         )}

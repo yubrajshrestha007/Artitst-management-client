@@ -1,4 +1,4 @@
-// /home/mint/Desktop/ArtistMgntFront/client/components/nav-user.tsx
+// nav-user.tsx
 "use client";
 
 import {
@@ -30,15 +30,30 @@ import { useLogoutMutation } from "@/shared/api/auth";
 
 export function NavUser({
   user,
+  role,
 }: {
   user: {
     name: string;
     email: string;
     avatar: string;
   };
+  role: string | null; // Add role prop
 }) {
   const { isMobile } = useSidebar();
-  const { mutate: logout, isPending } = useLogoutMutation(); // Use the hook
+  const { mutate: logout, isPending } = useLogoutMutation();
+
+  const profileLink =
+    role === "artist"
+      ? "/artist"
+      : role === "artist_manager"
+      ? "/manager"
+      : null;
+
+  const fallbackText = user.name
+    ? user.name[0].toUpperCase()
+    : user.email
+    ? user.email[0].toUpperCase()
+    : "";
 
   return (
     <SidebarMenu>
@@ -51,7 +66,9 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {fallbackText}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -71,7 +88,7 @@ export function NavUser({
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="rounded-lg">
-                    CN
+                    {fallbackText}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -82,10 +99,12 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                <a href="/artist">profile</a>
-              </DropdownMenuItem>
+              {profileLink && (
+                <DropdownMenuItem>
+                  <Sparkles />
+                  <a href={profileLink}>Profile</a>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
