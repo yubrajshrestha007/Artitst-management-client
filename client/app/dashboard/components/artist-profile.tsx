@@ -1,6 +1,6 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-profile.tsx
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ArtistProfile } from "@/shared/queries/artist-profile";
 import { useUsersQuery } from "@/shared/queries/users";
 import {
@@ -33,10 +33,9 @@ export default function ArtistProfileForm({
   const [formData, setFormData] = useState<ArtistProfile>(defaultFormData);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentManager, setCurrentManager] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [selectedManagerId, setSelectedManagerId] = useState<string | null>(
+    null
+  );
   const [allManagers, setAllManagers] = useState<{ id: string; name: string }[]>(
     []
   );
@@ -54,64 +53,58 @@ export default function ArtistProfileForm({
     }
   );
 
-  const { mutate: deleteArtistProfile, isLoading: isDeleteLoading } =
-    useDeleteArtistProfileMutation({
-      onSuccess: () => {
-        toast.success("Artist profile deleted successfully");
-        // Redirect or update UI as needed
-      },
-      onError: (error) => {
-        toast.error(`Error deleting artist profile: ${error.message}`);
-      },
-    });
+  const { mutate: deleteArtistProfile } = useDeleteArtistProfileMutation({
+    onSuccess: () => {
+      toast.success("Artist profile deleted successfully");
+      // Redirect or update UI as needed
+    },
+    onError: (error) => {
+      toast.error(`Error deleting artist profile: ${error.message}`);
+    },
+  });
 
   // Memoize fetchManagers
   const memoizedFetchManagers = useMemo(() => fetchManagers, []);
 
   // Function to reset the form data to default values
-  const resetFormData = () => {
+  const resetFormData = useCallback(() => {
     setFormData(defaultFormData);
-    setCurrentManager(null);
-  };
+    setSelectedManagerId(null);
+  }, []);
 
-  // Function to set the form data and current manager
-  const setProfileData = (profileData: ArtistProfile) => {
-    setFormData(profileData);
-    if (profileData.manager_id) {
-      const manager = allManagers.find((m) => m.id === profileData.manager_id);
-      setCurrentManager(manager || null);
-    } else {
-      setCurrentManager(null);
-    }
-  };
+  // Function to set the form data
+  const setProfileData = useCallback(
+    (profileData: ArtistProfile) => {
+      setFormData(profileData);
+      setSelectedManagerId(profileData.manager_id || null);
+    },
+    []
+  );
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setIsLoading(true);
-      setIsError(false);
-      try {
-        // Fetch managers
-        const managersResult = await memoizedFetchManagers();
-        if (managersResult) {
-          setAllManagers(
-            managersResult.map((manager) => ({
-              id: manager.id || "",
-              name: manager.name,
-            }))
-          );
-        }
-      } catch (error) {
-        setIsError(true);
-        toast.error("Error loading managers.");
-      } finally {
-        setIsLoading(false);
+  // Fetch managers only once
+  useMemo(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    try {
+      const managersResult = await memoizedFetchManagers();
+      if (managersResult) {
+        setAllManagers(
+          managersResult.map((manager) => ({
+            id: manager.id || "",
+            name: manager.name,
+          }))
+        );
       }
-    };
+    } catch (error) {
+      setIsError(true);
+      toast.error("Error loading managers.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [memoizedFetchManagers]);
 
-    fetchInitialData();
-  }, [memoizedFetchManagers]); // Only run when memoizedFetchManagers changes
-
-  useEffect(() => {
+  // Set initial data or artist profile data
+  useMemo(() => {
     if (initialData) {
       setProfileData(initialData);
     } else if (artistProfileData) {
@@ -119,38 +112,59 @@ export default function ArtistProfileForm({
     } else {
       resetFormData();
     }
-  }, [initialData, artistProfileData]);
+  }, [initialData, artistProfileData, setProfileData, resetFormData]);
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
-  };
+  const handleChange = useCallback(
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      const { name, value } = e.target;
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        [name]: value,
+      }));
+    },
+    []
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await onSubmit({
-        ...formData,
-        id: initialData?.id || artistProfileData?.id,
-        user_id: currentUserId,
-        manager_id: formData.manager_id || null,
-      });
-    } catch (error) {
-      toast.error("Error submitting the form.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const handleManagerChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const managerId = e.target.value;
+      setSelectedManagerId(managerId === "" ? null : managerId);
+    },
+    []
+  );
 
-  const handleDelete = async () => {
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsSubmitting(true);
+      try {
+        await onSubmit({
+          ...formData,
+          id: initialData?.id || artistProfileData?.id,
+          user_id: currentUserId,
+          manager_id: selectedManagerId, // Use selectedManagerId here
+        });
+      } catch (error) {
+        toast.error("Error submitting the form.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      formData,
+      initialData?.id,
+      artistProfileData?.id,
+      currentUserId,
+      selectedManagerId,
+      onSubmit,
+    ]
+  );
+
+  const handleDelete = useCallback(async () => {
     if (initialData?.id || artistProfileData?.id) {
       setIsDeleting(true);
       try {
@@ -166,11 +180,15 @@ export default function ArtistProfileForm({
         setIsDeleting(false);
       }
     }
-  };
+  }, [initialData?.id, artistProfileData?.id, deleteArtistProfile]);
 
   // Filter out the current manager from the list of all managers
-  const availableManagers = allManagers.filter((manager) =>
-    currentManager ? manager.id !== currentManager.id : true
+  const availableManagers = useMemo(
+    () =>
+      allManagers.filter((manager) =>
+        selectedManagerId ? manager.id !== selectedManagerId : true
+      ),
+    [allManagers, selectedManagerId]
   );
 
   if (isLoading) {
@@ -264,33 +282,40 @@ export default function ArtistProfileForm({
           <div>Error loading managers.</div>
         ) : (
           <>
-            {currentManager ? (
+            {selectedManagerId ? (
               <div className="mb-2">
-                Current Manager: {currentManager.name}
+                Current Manager:{" "}
+                {
+                  allManagers.find((m) => m.id === selectedManagerId)?.name
+                }
               </div>
             ) : (
               <div className="mb-2">No Manager Assigned</div>
             )}
 
-            {(currentManager || availableManagers.length > 0) && (
+            {(selectedManagerId || availableManagers.length > 0) && (
               <select
                 id="manager_id"
                 name="manager_id"
-                value={formData.manager_id || ""}
-                onChange={(e) => {
-                  handleChange(e);
-                }}
+                value={selectedManagerId || ""}
+                onChange={handleManagerChange}
                 className="border border-gray-300 rounded-md p-2 w-full"
               >
                 <option value="">
-                  {currentManager ? "Change Manager" : "Select a manager"}
+                  {selectedManagerId ? "Change Manager" : "Select a manager"}
                 </option>
                 {availableManagers.map(
-                  (manager: { id: string; name: string }) => (
-                    <option key={manager.id} value={manager.id}>
-                      {manager.name}
-                    </option>
-                  )
+                  (manager: { id: string; name: string }) => {
+                    // Check if manager.id is an empty string and skip rendering if it is
+                    if (manager.id === "") {
+                      return null;
+                    }
+                    return (
+                      <option key={manager.id} value={manager.id}>
+                        {manager.name}
+                      </option>
+                    );
+                  }
                 )}
               </select>
             )}
