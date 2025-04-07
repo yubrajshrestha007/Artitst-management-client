@@ -85,7 +85,7 @@ export interface ArtistProfile {
   address: string;
   first_release_year: number | null;
   no_of_albums_released: number;
-  manager_id: string | null;
+  manager_id_id: string | null;
   user_id?: string | null;
 }
 

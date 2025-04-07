@@ -23,7 +23,7 @@ const defaultFormData: ArtistProfile = {
   address: "",
   first_release_year: null,
   no_of_albums_released: 0,
-  manager_id: null,
+  manager_id_id: null,
 };
 
 export default function ArtistProfileForm({
@@ -76,7 +76,7 @@ export default function ArtistProfileForm({
   const setProfileData = useCallback(
     (profileData: ArtistProfile) => {
       setFormData(profileData);
-      setSelectedManagerId(profileData.manager_id || null);
+      setSelectedManagerId(profileData.manager_id_id || null);
     },
     []
   );
@@ -146,7 +146,7 @@ export default function ArtistProfileForm({
           ...formData,
           id: initialData?.id || artistProfileData?.id,
           user_id: currentUserId,
-          manager_id: selectedManagerId, // Use selectedManagerId here
+          manager_id_id: selectedManagerId, // Use selectedManagerId here
         });
       } catch (error) {
         toast.error("Error submitting the form.");
@@ -275,7 +275,7 @@ export default function ArtistProfileForm({
       </div>
       {/* Manager Select */}
       <div>
-        <label htmlFor="manager_id">Manager</label>
+        <label htmlFor="manager_id_id">Manager</label>
         {isLoading ? (
           <div>Loading managers...</div>
         ) : isError ? (
