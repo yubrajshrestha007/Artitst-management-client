@@ -31,7 +31,6 @@ const handleManagerMutationError = (error: any) => {
 export const fetchManagers = async (): Promise<ManagerProfile[]> => {
   try {
     const response = await fetchAllManagerProfiles();
-    console.log("fetchManagers response:", response); // Add this line
     if (Array.isArray(response)) {
       return response;
     }
@@ -41,7 +40,7 @@ export const fetchManagers = async (): Promise<ManagerProfile[]> => {
     }
     return response.managers; // Return the array directly
   } catch (error) {
-    console.error("fetchManagers error:", error); // Add this line
+    console.error("fetchManagers error:", error);
     toast.error("Failed to fetch managers");
     throw error; // Re-throw the error to propagate it
   }
@@ -76,7 +75,7 @@ export const useCreateManagerProfileMutation = ({
   return useMutation({
     mutationFn: createManagerProfileApi,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
       queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
@@ -96,7 +95,7 @@ export const useUpdateManagerProfileMutation = ({
   return useMutation({
     mutationFn: updateManagerProfileApi,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
       queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
@@ -116,7 +115,7 @@ export const useDeleteManagerProfileMutation = ({
   return useMutation({
     mutationFn: deleteManagerProfileApi,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["myManagerProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
       queryClient.invalidateQueries({ queryKey: ["managers"] });
       invalidateProfile();
       if (onSuccess) {
@@ -128,14 +127,14 @@ export const useDeleteManagerProfileMutation = ({
 };
 
 export const useManagersQuery = () => {
-  return useQuery<ManagerProfile[], Error>({ // Return ManagerProfile[] directly
+  return useQuery<ManagerProfile[], Error>({
     queryKey: ["managers"],
-    queryFn: fetchManagers, // Use the improved fetchManagers function
+    queryFn: fetchManagers,
     retry: false,
     onError: (error) => {
-      console.log("Error fetching managers:", error);
+      console.error("Error fetching managers:", error);
       toast.error(error.message || "Failed to fetch managers");
-      throw error; // Re-throw the error to propagate it
+      throw error;
     },
   });
 };
