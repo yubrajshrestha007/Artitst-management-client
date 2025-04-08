@@ -6,15 +6,17 @@ import { toast } from "sonner";
 import { isValid, parseISO } from "date-fns";
 
 interface ManagerProfileFormProps {
-  onSubmit: (data: ManagerProfile) => void;
+  onSubmit: (data: Partial<ManagerProfile>) => void; // Change to Partial<ManagerProfile>
   initialData?: ManagerProfile;
+  onCancel?: () => void;
 }
 
 export default function ManagerProfileForm({
   onSubmit,
   initialData,
+  onCancel,
 }: ManagerProfileFormProps) {
-  const [formData, setFormData] = useState<ManagerProfile>({
+  const [formData, setFormData] = useState<Partial<ManagerProfile>>({ // Change to Partial<ManagerProfile>
     name: "",
     company_name: "",
     company_email: "",
@@ -26,16 +28,16 @@ export default function ManagerProfileForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
+  const isUpdateMode = !!initialData?.id;
 
   const { data: usersData } = useUsersQuery();
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
       toast.success("Manager profile deleted successfully");
+      onCancel?.();
     },
     onError: (error: any) => {
-      toast.error(
-        error.message || "Error deleting manager profile"
-      );
+      toast.error(error.message || "Error deleting manager profile");
     },
   });
 
@@ -82,19 +84,17 @@ export default function ManagerProfileForm({
 
     // Create a new object with only the fields expected by the backend for an update
     const dataToSubmit: Partial<ManagerProfile> = {
-      name: formData.name,
-      company_name: formData.company_name,
-      company_email: formData.company_email,
-      company_phone: formData.company_phone,
-      gender: formData.gender,
-      address: formData.address,
-      date_of_birth: formData.date_of_birth,
-      id: initialData?.id, // Include the id for updates
+      ...formData,
     };
+
+    if (isUpdateMode) {
+        dataToSubmit.id = initialData!.id;
+    }
+
     console.log("formData:", formData);
     console.log("dataToSubmit:", dataToSubmit);
     console.log("Data being sent to onSubmit:", dataToSubmit);
-    onSubmit(dataToSubmit as ManagerProfile);
+    onSubmit(dataToSubmit);
     setIsSubmitting(false);
   };
 
@@ -113,7 +113,7 @@ export default function ManagerProfileForm({
           type="text"
           id="name"
           name="name"
-          value={formData.name}
+          value={formData.name || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
           required
@@ -125,7 +125,7 @@ export default function ManagerProfileForm({
           type="text"
           id="company_name"
           name="company_name"
-          value={formData.company_name}
+          value={formData.company_name || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
           required
@@ -137,7 +137,7 @@ export default function ManagerProfileForm({
           type="email"
           id="company_email"
           name="company_email"
-          value={formData.company_email}
+          value={formData.company_email || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
           required
@@ -149,7 +149,7 @@ export default function ManagerProfileForm({
           type="text"
           id="company_phone"
           name="company_phone"
-          value={formData.company_phone}
+          value={formData.company_phone || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
           required
@@ -160,7 +160,7 @@ export default function ManagerProfileForm({
         <select
           id="gender"
           name="gender"
-          value={formData.gender}
+          value={formData.gender || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
         >
@@ -176,7 +176,7 @@ export default function ManagerProfileForm({
           type="text"
           id="address"
           name="address"
-          value={formData.address}
+          value={formData.address || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full"
           required
@@ -202,7 +202,7 @@ export default function ManagerProfileForm({
         >
           {isSubmitting
             ? "Submitting..."
-            : initialData
+            : isUpdateMode
             ? "Update Profile"
             : "Create Profile"}
         </button>

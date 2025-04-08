@@ -184,11 +184,7 @@ export default function ArtistProfileForm({
            dataToSubmit.user_id = currentUserId; // Add user_id for create
            // Ensure id is not sent on create
            delete dataToSubmit.id;
-        } else if (!isUpdateMode && !currentUserId) {
-            toast.error("Cannot create profile: User ID is missing.");
-            setIsSubmitting(false);
-            return; // Prevent submission
-        }
+      }
 
         console.log("Submitting from ArtistProfileForm:", dataToSubmit);
         await onSubmit(dataToSubmit); // Call the onSubmit passed from parent

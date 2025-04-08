@@ -40,14 +40,19 @@ import {
 interface UserManagementTableProps {
   currentUserRole: string;
   type?: "user" | "artist" | "manager";
+  filteredData?: ArtistProfile[]; // Add filteredData prop
 }
 
 type CreateData = Partial<User> | ArtistProfile | Partial<ManagerProfile>;
-type UpdateData = { id: string; data: Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile> };
+type UpdateData = {
+  id: string;
+  data: Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
+};
 
 export default function UserManagementTable({
   currentUserRole,
   type,
+  filteredData, // Receive filteredData
 }: UserManagementTableProps) {
   const queryClient = useQueryClient();
   const { data: usersData, isLoading: isUsersLoading } = useUsersQuery();
@@ -67,7 +72,10 @@ export default function UserManagementTable({
     data: managerProfileData,
     isLoading: isManagerProfilesLoading,
   } = useManagersQuery();
-  const managerProfiles = managerProfileData || [];
+  const managerProfiles: ManagerProfile[] = useMemo(
+    () => (Array.isArray(managerProfileData) ? managerProfileData : []),
+    [managerProfileData]
+  );
 
   const createManagerProfileMutation = useCreateManagerProfileMutation();
   const updateManagerProfileMutation = useUpdateManagerProfileMutation();
@@ -76,7 +84,7 @@ export default function UserManagementTable({
   const users = useMemo(() => usersData?.users || [], [usersData]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredUsers, setFilteredUsers] = useState(users);
-  const [filteredArtists, setFilteredArtists] = useState(artistProfiles);
+  const [filteredArtists, setFilteredArtists] = useState<ArtistProfile[]>([]);
   const [filteredManagers, setFilteredManagers] = useState(managerProfiles);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -87,11 +95,12 @@ export default function UserManagementTable({
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const isLoading = isUsersLoading || isArtistProfilesLoading || isManagerProfilesLoading;
+  const isLoading =
+    isUsersLoading || isArtistProfilesLoading || isManagerProfilesLoading;
 
   const managerMap = useMemo(() => {
     const map = new Map<string, string>();
-    managerProfiles.forEach(manager => {
+    managerProfiles.forEach((manager) => {
       if (manager.id) {
         map.set(manager.id, manager.name || "Unnamed Manager");
       }
@@ -107,16 +116,31 @@ export default function UserManagementTable({
 
   useEffect(() => {
     const term = searchTerm.toLowerCase();
-    if (type === 'user') {
-        setFilteredUsers(users.filter(user => user.email.toLowerCase().includes(term)));
-    } else if (type === 'artist') {
-        setFilteredArtists(artistProfiles.filter(artist => artist.name?.toLowerCase().includes(term)));
-    } else if (type === 'manager') {
-        setFilteredManagers(managerProfiles.filter(manager => manager.name?.toLowerCase().includes(term)));
+    if (type === "user") {
+      setFilteredUsers(
+        users.filter((user) => user.email.toLowerCase().includes(term))
+      );
+    } else if (type === "artist") {
+      const profilesToFilter = filteredData || artistProfiles;
+      setFilteredArtists(
+        profilesToFilter.filter((artist) =>
+          artist.name?.toLowerCase().includes(term)
+        )
+      );
+    } else if (type === "manager") {
+      setFilteredManagers(
+        managerProfiles.filter((manager) =>
+          manager.name?.toLowerCase().includes(term)
+        )
+      );
     }
-  }, [searchTerm, users, artistProfiles, managerProfiles, type]);
+  }, [searchTerm, users, artistProfiles, managerProfiles, type, filteredData]);
 
-  const handleMutationError = (error: any, action: string, itemType: string) => {
+  const handleMutationError = (
+    error: any,
+    action: string,
+    itemType: string
+  ) => {
     toast.error(`Error ${action} ${itemType}: ${error.message}`);
   };
 
@@ -139,7 +163,9 @@ export default function UserManagementTable({
           await createArtistProfileMutation.mutateAsync(data as ArtistProfile);
           toast.success("Artist profile created successfully!");
         } else if (type === "manager") {
-          await createManagerProfileMutation.mutateAsync(data as Partial<ManagerProfile>);
+          await createManagerProfileMutation.mutateAsync(
+            data as Partial<ManagerProfile>
+          );
           toast.success("Manager profile created successfully!");
         }
       } catch (error) {
@@ -162,13 +188,22 @@ export default function UserManagementTable({
       setIsUpdating(true);
       try {
         if (type === "user") {
-          await updateUserMutation.mutateAsync({ id, data: data as Partial<User> });
+          await updateUserMutation.mutateAsync({
+            id,
+            data: data as Partial<User>,
+          });
           toast.success("User updated successfully!");
         } else if (type === "artist") {
-          await updateArtistProfileMutation.mutateAsync({ id, data: data as Partial<ArtistProfile> });
+          await updateArtistProfileMutation.mutateAsync({
+            id,
+            data: data as Partial<ArtistProfile>,
+          });
           toast.success("Artist profile updated successfully!");
         } else if (type === "manager") {
-          await updateManagerProfileMutation.mutateAsync({ id, data: data as Partial<ManagerProfile> });
+          await updateManagerProfileMutation.mutateAsync({
+            id,
+            data: data as Partial<ManagerProfile>,
+          });
           toast.success("Manager profile updated successfully!");
         }
       } catch (error) {
@@ -267,94 +302,102 @@ export default function UserManagementTable({
             {type === "user"
               ? "User List"
               : type === "artist"
-                ? "Artist Profiles"
-                : "Manager Profiles"}
+              ? "Artist Profiles"
+              : "Manager Profiles"}
           </h2>
           <div className="flex items-center gap-4">
             <div className="relative">
               <Input
                 type="text"
-                placeholder={`Search by ${type === 'user' ? 'email' : 'name'}...`}
+                placeholder={`Search by ${
+                  type === "user" ? "email" : "name"
+                }...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-64 pl-8"
               />
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             </div>
-            {(currentUserRole === "super_admin" || (currentUserRole === "artist_manager" && type !== 'artist')) && (
+            {(currentUserRole === "super_admin" ||
+              (currentUserRole === "artist_manager" && type !== "artist")) && (
               <Button onClick={() => handleOpenModal(null)}>
                 Create{" "}
                 {type === "user"
                   ? "User"
                   : type === "artist"
-                    ? "Artist Profile"
-                    : "Manager Profile"}
+                  ? "Artist Profile"
+                  : "Manager Profile"}
               </Button>
             )}
           </div>
         </div>
         <div className="overflow-x-auto rounded-md border">
-            <Table>
+          <Table>
             <TableHeader>
-                <TableRow>
+              <TableRow>
                 {columns.map((col) => (
-                    <TableHead key={col.key}>{col.label}</TableHead>
+                  <TableHead key={col.key}>{col.label}</TableHead>
                 ))}
                 <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
+              </TableRow>
             </TableHeader>
             <TableBody>
-                {data.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={columns.length + 1} className="h-24 text-center">
-                            No {type}s found{searchTerm && ' matching your search'}.
-                        </TableCell>
-                    </TableRow>
-                ) : (
-                    data.map((item) => (
-                        <TableRow key={item.id}>
-                        {columns.map((col) => (
-                            <TableCell key={`${item.id}-${col.key}`}>
-                            {col.key === "manager_id_id" && type === "artist" ? (
-                                managerMapArg.get(item.manager_id_id) || "N/A"
-                            ) : col.key === "is_active" ? (
-                                item.is_active ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                ) : (
-                                <XCircle className="h-4 w-4 text-red-500" />
-                                )
-                            ) : col.key === "date_of_birth" && item.date_of_birth ? (
-                                new Date(item.date_of_birth).toLocaleDateString()
-                            ) : (
-                                item[col.key] ?? "N/A"
-                            )}
-                            </TableCell>
-                        ))}
-                        <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenModal(item, true)}
-                                title={`Edit ${type}`}
-                            >
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteItem(item)}
-                                title={`Delete ${type}`}
-                            >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                            </div>
-                        </TableCell>
-                        </TableRow>
-                    ))
-                )}
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length + 1}
+                    className="h-24 text-center"
+                  >
+                    No {type}s found
+                    {searchTerm && " matching your search"}.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((item) => (
+                  <TableRow key={item.id}>
+                    {columns.map((col) => (
+                      <TableCell key={`${item.id}-${col.key}`}>
+                        {col.key === "manager_id_id" && type === "artist" ? (
+                          managerMapArg.get(item.manager_id_id) || "N/A"
+                        ) : col.key === "is_active" ? (
+                          item.is_active ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )
+                        ) : col.key === "date_of_birth" &&
+                          item.date_of_birth ? (
+                          new Date(item.date_of_birth).toLocaleDateString()
+                        ) : (
+                          item[col.key] ?? "N/A"
+                        )}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenModal(item, true)}
+                          title={`Edit ${type}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteItem(item)}
+                          title={`Delete ${type}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
-            </Table>
+          </Table>
         </div>
       </>
     );
@@ -377,7 +420,7 @@ export default function UserManagementTable({
       { key: "address", label: "Address" },
       { key: "date_of_birth", label: "Date of Birth" },
       { key: "first_release_year", label: "First Release Year" },
-      { key: 'manager_id_id', label: 'Manager Name' },
+      { key: "manager_id_id", label: "Manager Name" },
       { key: "no_of_albums_released", label: "Albums Released" },
     ];
     return renderTable(filteredArtists, columns, managerMap);
@@ -386,13 +429,15 @@ export default function UserManagementTable({
   const renderManagerTable = () => {
     const columns = [
       { key: "name", label: "Name" },
+      { key: "gender", label: "Gender" },
+      { key: "address", label: "Address" },
+      { key: "date_of_birth", label: "Date of Birth" },
       { key: "company_name", label: "Company Name" },
       { key: "company_email", label: "Company Email" },
       { key: "company_phone", label: "Company Phone" },
     ];
     return renderTable(filteredManagers, columns, managerMap);
   };
-
 
   if (isLoading) {
     return <div className="p-4 text-center">Loading data...</div>;
@@ -408,18 +453,24 @@ export default function UserManagementTable({
           {type === "manager" && renderManagerTable()}
         </>
       )}
-      {currentUserRole === "artist_manager" && type === "artist" && renderArtistTable()}
+      {currentUserRole === "artist_manager" &&
+        type === "artist" &&
+        renderArtistTable()}
       {currentUserRole === "artist" && <MusicList />}
 
       {isModalOpen && (
         <UserModal
-            isOpen={isModalOpen}
-            onClose={handleCloseModal}
-            onSubmit={isCreating ? handleCreate : (data) => handleUpdate(selectedItem!.id, data)}
-            initialData={selectedItem as Partial<User> | undefined}
-            isCreating={isCreating}
-            isUpdating={isUpdating}
-            type={type}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onSubmit={
+            isCreating
+              ? handleCreate
+              : (data) => handleUpdate(selectedItem!.id, data)
+          }
+          initialData={selectedItem as Partial<User> | undefined}
+          isCreating={isCreating}
+          isUpdating={isUpdating}
+          type={type}
         />
       )}
       <CustomModal

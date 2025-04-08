@@ -91,6 +91,7 @@ export interface ArtistProfile {
 
 // Music Interface
 export interface Music {
+  created: Date;
   id?: string;
   title: string;
   album_name: string;

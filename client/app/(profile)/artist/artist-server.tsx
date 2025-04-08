@@ -77,6 +77,7 @@ export default function ArtistProfilePage({ isAuthenticated, role }: ArtistProfi
         <ArtistProfileForm
           onSubmit={handleCreateProfile}
           initialData={profile}
+
         />
       </div>
     </DashboardLayout>
