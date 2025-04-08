@@ -36,6 +36,7 @@ import {
   useUpdateManagerProfileMutation,
   useManagersQuery,
 } from "@/shared/queries/manager-profile";
+import ManagerProfileForm from "./manager-profile";
 
 interface UserManagementTableProps {
   currentUserRole: string;
@@ -184,24 +185,24 @@ export default function UserManagementTable({
   );
 
   const handleUpdate = useCallback(
-    async (id: string, data: UpdateData["data"]) => {
+    async (data: UpdateData["data"]) => {
       setIsUpdating(true);
       try {
         if (type === "user") {
           await updateUserMutation.mutateAsync({
-            id,
+            id: selectedItem!.id,
             data: data as Partial<User>,
           });
           toast.success("User updated successfully!");
         } else if (type === "artist") {
           await updateArtistProfileMutation.mutateAsync({
-            id,
+            id: selectedItem!.id,
             data: data as Partial<ArtistProfile>,
           });
           toast.success("Artist profile updated successfully!");
         } else if (type === "manager") {
           await updateManagerProfileMutation.mutateAsync({
-            id,
+            id: selectedItem!.id,
             data: data as Partial<ManagerProfile>,
           });
           toast.success("Manager profile updated successfully!");
@@ -218,6 +219,7 @@ export default function UserManagementTable({
       updateArtistProfileMutation,
       updateManagerProfileMutation,
       handleMutationFinally,
+      selectedItem,
     ]
   );
 
@@ -459,19 +461,39 @@ export default function UserManagementTable({
       {currentUserRole === "artist" && <MusicList />}
 
       {isModalOpen && (
-        <UserModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          onSubmit={
-            isCreating
-              ? handleCreate
-              : (data) => handleUpdate(selectedItem!.id, data)
-          }
-          initialData={selectedItem as Partial<User> | undefined}
-          isCreating={isCreating}
-          isUpdating={isUpdating}
-          type={type}
-        />
+        <>
+          {type === "manager" ? (
+            <CustomModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              title={isCreating ? "Create Manager Profile" : "Update Manager Profile"}
+            >
+              <ManagerProfileForm
+                onSubmit={
+                  isCreating
+                    ? handleCreate
+                    : (data) => handleUpdate(data)
+                }
+                initialData={selectedItem as ManagerProfile | undefined}
+                onCancel={handleCloseModal}
+              />
+            </CustomModal>
+          ) : (
+            <UserModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              onSubmit={
+                isCreating
+                  ? handleCreate
+                  : (data) => handleUpdate(data)
+              }
+              initialData={selectedItem as Partial<User> | undefined}
+              isCreating={isCreating}
+              isUpdating={isUpdating}
+              type={type}
+            />
+          )}
+        </>
       )}
       <CustomModal
         isOpen={isDeleteDialogOpen}

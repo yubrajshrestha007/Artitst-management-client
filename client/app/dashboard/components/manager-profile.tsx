@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/manager-profile.tsx
+import { useState, useEffect, useCallback } from "react";
 import { ManagerProfile } from "@/shared/queries/manager-profile";
-import { useUsersQuery } from "@/shared/queries/users";
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
 import { isValid, parseISO } from "date-fns";
 
 interface ManagerProfileFormProps {
-  onSubmit: (data: Partial<ManagerProfile>) => void; // Change to Partial<ManagerProfile>
+  // onSubmit: (data: Partial<ManagerProfile>) => void;
+  onSubmit:()=> Partial<ManagerProfile>;
+  // Change to Partial<ManagerProfile>
   initialData?: ManagerProfile;
   onCancel?: () => void;
 }
@@ -16,7 +18,7 @@ export default function ManagerProfileForm({
   initialData,
   onCancel,
 }: ManagerProfileFormProps) {
-  const [formData, setFormData] = useState<Partial<ManagerProfile>>({ // Change to Partial<ManagerProfile>
+  const [formData, setFormData] = useState<Partial<ManagerProfile>>({
     name: "",
     company_name: "",
     company_email: "",
@@ -30,7 +32,6 @@ export default function ManagerProfileForm({
   const [dateError, setDateError] = useState<string | null>(null);
   const isUpdateMode = !!initialData?.id;
 
-  const { data: usersData } = useUsersQuery();
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
       toast.success("Manager profile deleted successfully");
@@ -57,53 +58,62 @@ export default function ManagerProfileForm({
     }
   }, [initialData]);
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
-    if (name === "date_of_birth") {
-      setDateError(null);
-      if (value) {
-        const parsedDate = parseISO(value);
-        if (!isValid(parsedDate)) {
-          setDateError("Invalid date format");
+  const handleChange = useCallback(
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      const { name, value } = e.target;
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        [name]: value,
+      }));
+      if (name === "date_of_birth") {
+        setDateError(null);
+        if (value) {
+          const parsedDate = parseISO(value);
+          if (!isValid(parsedDate)) {
+            setDateError("Invalid date format");
+          }
         }
       }
-    }
-  };
+    },
+    []
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsSubmitting(true);
 
-    // Create a new object with only the fields expected by the backend for an update
-    const dataToSubmit: Partial<ManagerProfile> = {
-      ...formData,
-    };
+      // Create a new object with only the fields expected by the backend for an update
+      const dataToSubmit: Partial<ManagerProfile> = {
+        ...formData,
+      };
 
-    if (isUpdateMode) {
-        dataToSubmit.id = initialData!.id;
-    }
+      if (isUpdateMode) {
+        // Remove extra fields not needed by the backend
+        delete dataToSubmit.user_id;
+        delete dataToSubmit.manager_id;
+        delete dataToSubmit.id;
+      }
 
-    console.log("formData:", formData);
-    console.log("dataToSubmit:", dataToSubmit);
-    console.log("Data being sent to onSubmit:", dataToSubmit);
-    onSubmit(dataToSubmit);
-    setIsSubmitting(false);
-  };
+      console.log("formData:", formData);
+      console.log("dataToSubmit:", dataToSubmit);
+      console.log("Data being sent to onSubmit:", dataToSubmit);
+      onSubmit(dataToSubmit);
+      setIsSubmitting(false);
+    },
+    [formData, isUpdateMode, onSubmit]
+  );
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (initialData?.id) {
       setIsDeleting(true);
       deleteManagerProfile(initialData.id);
     }
-  };
+  }, [initialData?.id, deleteManagerProfile]);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">

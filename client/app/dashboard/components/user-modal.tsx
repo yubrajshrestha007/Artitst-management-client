@@ -40,7 +40,7 @@ interface UserModalProps {
   initialData?: Partial<User>;
   isCreating?: boolean;
   isUpdating?: boolean;
-  type?: "user" | "artist" | "manager";
+  type?: "user" | "artist" | "manager"; // Added type prop
 }
 
 const getUserSchema = (isCreating?: boolean) => {
@@ -57,7 +57,7 @@ export default function UserModal({
   initialData,
   isCreating,
   isUpdating,
-  type,
+  type, // Added type prop
 }: UserModalProps) {
   const currentSchema = getUserSchema(isCreating);
 
