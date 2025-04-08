@@ -30,8 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUpdateUserMutation } from "@/shared/queries/users";
 import { useEffect } from "react";
+import { Switch } from "@/components/ui/switch";
 
 interface UserModalProps {
   isOpen: boolean;
@@ -43,6 +43,13 @@ interface UserModalProps {
   type?: "user" | "artist" | "manager";
 }
 
+const getUserSchema = (isCreating?: boolean) => {
+  if (isCreating) {
+    return userSchema;
+  }
+  return userSchema.omit({ password: true, confirm_password: true });
+};
+
 export default function UserModal({
   isOpen,
   onClose,
@@ -52,12 +59,13 @@ export default function UserModal({
   isUpdating,
   type,
 }: UserModalProps) {
-  const form = useForm<z.infer<typeof userSchema>>({
-    resolver: zodResolver(userSchema),
+  const currentSchema = getUserSchema(isCreating);
+
+  const form = useForm<z.infer<typeof currentSchema>>({
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       email: "",
-      password: "",
-      confirm_password: "",
+      ...(isCreating && { password: "", confirm_password: "" }),
       role: "",
       is_active: false,
       ...initialData,
@@ -65,50 +73,55 @@ export default function UserModal({
   });
 
   useEffect(() => {
-    if (initialData) {
-      form.reset(initialData);
-    }
-  }, [initialData, form]);
+    const defaultVals = {
+      email: "",
+      ...(isCreating && { password: "", confirm_password: "" }),
+      role: "",
+      is_active: false,
+      ...initialData,
+    };
+    form.reset(defaultVals);
+  }, [initialData, isCreating, form]);
 
-  const { mutate: updateUser } = useUpdateUserMutation();
-
-  const handleSubmit = (values: z.infer<typeof userSchema>) => {
-    const { password, confirm_password, ...data } = values;
-    const dataToSubmit = { ...data };
-    if (isUpdating && initialData?.id) {
-      updateUser({ id: initialData.id, data: dataToSubmit });
-    } else {
-      onSubmit(dataToSubmit);
-    }
-    onClose();
+  const handleFormSubmit = (values: z.infer<typeof currentSchema>) => {
+    console.log("UserModal submitting:", values);
+    onSubmit(values);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{isCreating ? "Create User" : "Edit User"}</DialogTitle>
           <DialogDescription>
-            {isCreating ? "Create a new user" : "Edit the user's information"}
+            {isCreating
+              ? "Enter the details for the new user."
+              : "Edit the user's information."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="user@example.com"
+                      {...field}
+                      readOnly={isUpdating}
+                      className={isUpdating ? "bg-gray-100 cursor-not-allowed" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {isCreating && (
               <>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="password"
@@ -118,7 +131,7 @@ export default function UserModal({
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Password"
+                          placeholder="••••••••"
                           {...field}
                         />
                       </FormControl>
@@ -135,7 +148,7 @@ export default function UserModal({
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Confirm Password"
+                          placeholder="••••••••"
                           {...field}
                         />
                       </FormControl>
@@ -145,17 +158,15 @@ export default function UserModal({
                 />
               </>
             )}
+
+            {/* Role field - Now editable */}
             <FormField
               control={form.control}
               name="role"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isUpdating}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -172,29 +183,34 @@ export default function UserModal({
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="is_active"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">Active</FormLabel>
+                    <FormLabel>Active Status</FormLabel>
+                    <DialogDescription>
+                      Inactive users cannot log in.
+                    </DialogDescription>
                   </div>
                   <FormControl>
-                    <Input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    <Switch
                       checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
+                      onCheckedChange={field.onChange}
+                      aria-label="Active Status"
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
             <DialogFooter>
-              <Button type="submit">
-                {isCreating ? "Create User" : "Update User"}
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {isUpdating ? "Update User" : "Create User"}
               </Button>
             </DialogFooter>
           </form>

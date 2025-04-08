@@ -79,7 +79,7 @@ export interface ManagerProfile {
 }
 export interface ArtistProfile {
   id?: string;
-  name: string;
+  name: string| undefined;
   date_of_birth: string | null;
   gender: string;
   address: string;

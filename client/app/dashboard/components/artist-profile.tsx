@@ -75,7 +75,7 @@ export default function ArtistProfileForm({
 
   // Delete Mutation - Handles invalidation and state reset on success
   const { mutate: deleteArtistProfile } = useDeleteArtistProfileMutation({
-    onSuccess: (_, deletedId) => {
+    onSuccess: () => {
       toast.success("Artist profile deleted successfully");
       // Invalidate the specific query in the parent via queryClient
       if (currentUserId) {
@@ -261,8 +261,8 @@ export default function ArtistProfileForm({
           id="date_of_birth"
           name="date_of_birth"
           // Format date for input value if it's a Date object, otherwise use string/null
-          value={formData.date_of_birth instanceof Date
-                 ? formData.date_of_birth.toISOString().split('T')[0]
+          value={typeof formData.date_of_birth === "string" && !isNaN(Date.parse(formData.date_of_birth))
+                 ? new Date(formData.date_of_birth).toISOString().split('T')[0]
                  : formData.date_of_birth || ""}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

@@ -6,7 +6,7 @@ import {
   useUpdateUserMutation,
   useUsersQuery,
 } from "@/shared/queries/users";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import UserModal from "./user-modal";
 import { User, ArtistProfile, ManagerProfile } from "@/types/auth";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import {
   useCreateManagerProfileMutation,
   useDeleteManagerProfileMutation,
   useUpdateManagerProfileMutation,
-  useManagersQuery, // Import the new query
+  useManagersQuery,
 } from "@/shared/queries/manager-profile";
 
 interface UserManagementTableProps {
@@ -42,8 +42,7 @@ interface UserManagementTableProps {
   type?: "user" | "artist" | "manager";
 }
 
-// Define types for the data expected by each mutation
-type CreateData = Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
+type CreateData = Partial<User> | ArtistProfile | Partial<ManagerProfile>;
 type UpdateData = { id: string; data: Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile> };
 
 export default function UserManagementTable({
@@ -58,7 +57,7 @@ export default function UserManagementTable({
 
   const { data: artistProfileData, isLoading: isArtistProfilesLoading } =
     useArtistProfileListQuery();
-  const artistProfiles = artistProfileData || [];
+  const artistProfiles = Array.isArray(artistProfileData) ? artistProfileData : [];
 
   const createArtistProfileMutation = useCreateArtistProfileMutation();
   const updateArtistProfileMutation = useUpdateArtistProfileMutation();
@@ -67,16 +66,18 @@ export default function UserManagementTable({
   const {
     data: managerProfileData,
     isLoading: isManagerProfilesLoading,
-  } = useManagersQuery(); // Use the new query
+  } = useManagersQuery();
   const managerProfiles = managerProfileData || [];
 
   const createManagerProfileMutation = useCreateManagerProfileMutation();
   const updateManagerProfileMutation = useUpdateManagerProfileMutation();
   const deleteManagerProfileMutation = useDeleteManagerProfileMutation();
 
-  const users = usersData?.users || [];
+  const users = useMemo(() => usersData?.users || [], [usersData]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredUsers, setFilteredUsers] = useState(users);
+  const [filteredArtists, setFilteredArtists] = useState(artistProfiles);
+  const [filteredManagers, setFilteredManagers] = useState(managerProfiles);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -86,8 +87,17 @@ export default function UserManagementTable({
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Combine loading states
   const isLoading = isUsersLoading || isArtistProfilesLoading || isManagerProfilesLoading;
+
+  const managerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    managerProfiles.forEach(manager => {
+      if (manager.id) {
+        map.set(manager.id, manager.name || "Unnamed Manager");
+      }
+    });
+    return map;
+  }, [managerProfiles]);
 
   const invalidateQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -96,23 +106,26 @@ export default function UserManagementTable({
   }, [queryClient]);
 
   useEffect(() => {
-    const filtered = users.filter((user) =>
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-  }, [searchTerm, users]);
+    const term = searchTerm.toLowerCase();
+    if (type === 'user') {
+        setFilteredUsers(users.filter(user => user.email.toLowerCase().includes(term)));
+    } else if (type === 'artist') {
+        setFilteredArtists(artistProfiles.filter(artist => artist.name?.toLowerCase().includes(term)));
+    } else if (type === 'manager') {
+        setFilteredManagers(managerProfiles.filter(manager => manager.name?.toLowerCase().includes(term)));
+    }
+  }, [searchTerm, users, artistProfiles, managerProfiles, type]);
 
-  // Helper function for common mutation error handling
   const handleMutationError = (error: any, action: string, itemType: string) => {
     toast.error(`Error ${action} ${itemType}: ${error.message}`);
   };
 
-  // Helper function for common mutation finally block
   const handleMutationFinally = () => {
     setIsCreating(false);
     setIsUpdating(false);
     setIsModalOpen(false);
     setSelectedItem(null);
+    invalidateQueries();
   };
 
   const handleCreate = useCallback(
@@ -123,7 +136,7 @@ export default function UserManagementTable({
           await createUserMutation.mutateAsync(data as Partial<User>);
           toast.success("User created successfully!");
         } else if (type === "artist") {
-          await createArtistProfileMutation.mutateAsync(data as Partial<ArtistProfile>);
+          await createArtistProfileMutation.mutateAsync(data as ArtistProfile);
           toast.success("Artist profile created successfully!");
         } else if (type === "manager") {
           await createManagerProfileMutation.mutateAsync(data as Partial<ManagerProfile>);
@@ -140,6 +153,7 @@ export default function UserManagementTable({
       createUserMutation,
       createArtistProfileMutation,
       createManagerProfileMutation,
+      handleMutationFinally,
     ]
   );
 
@@ -168,6 +182,7 @@ export default function UserManagementTable({
       updateUserMutation,
       updateArtistProfileMutation,
       updateManagerProfileMutation,
+      handleMutationFinally,
     ]
   );
 
@@ -184,6 +199,7 @@ export default function UserManagementTable({
           await deleteManagerProfileMutation.mutateAsync(id);
           toast.success("Manager profile deleted successfully!");
         }
+        invalidateQueries();
       } catch (error) {
         handleMutationError(error, "deleting", type || "item");
       } finally {
@@ -196,6 +212,7 @@ export default function UserManagementTable({
       deleteUserMutation,
       deleteArtistProfileMutation,
       deleteManagerProfileMutation,
+      invalidateQueries,
     ]
   );
 
@@ -228,7 +245,7 @@ export default function UserManagementTable({
   );
 
   const confirmDelete = useCallback(() => {
-    if (selectedItem) {
+    if (selectedItem?.id) {
       handleDelete(selectedItem.id);
     }
   }, [handleDelete, selectedItem]);
@@ -238,67 +255,33 @@ export default function UserManagementTable({
     setSelectedItem(null);
   }, []);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  // Helper functions to render each type of table
-  const renderUserTable = () => {
-    const columns = [
-      { key: "id", label: "ID" },
-      { key: "email", label: "Email" },
-      { key: "role", label: "Role" },
-      { key: "is_active", label: "Status" },
-    ];
-    return renderTable(filteredUsers, columns);
-  };
-
-  const renderArtistTable = () => {
-    const columns = [
-      { key: "name", label: "Name" },
-      { key: "gender", label: "Gender" },
-      { key: "address", label: "Address" },
-      { key: "date_of_birth", label: "Date of Birth" },
-      { key: "first_release_year", label: "First Release Year" },
-      { key: "no_of_albums_released", label: "Number of Albums Released" },
-    ];
-    return renderTable(artistProfiles, columns);
-  };
-
-  const renderManagerTable = () => {
-    const columns = [
-      { key: "name", label: "Name" },
-      { key: "company_name", label: "Company Name" },
-      { key: "company_email", label: "Company Email" },
-      { key: "company_phone", label: "Company Phone" },
-    ];
-    return renderTable(managerProfiles, columns);
-  };
-
-  // Helper function to render the table
-  const renderTable = (data: any[], columns: any[]) => {
+  const renderTable = (
+    data: any[],
+    columns: { key: string; label: string }[],
+    managerMapArg: Map<string, string>
+  ) => {
     return (
       <>
-        <div className="flex justify-between items-center mb-4">
-          <h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">
             {type === "user"
               ? "User List"
               : type === "artist"
                 ? "Artist Profiles"
                 : "Manager Profiles"}
           </h2>
-          <div>
+          <div className="flex items-center gap-4">
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Search by email..."
+                placeholder={`Search by ${type === 'user' ? 'email' : 'name'}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
+                className="w-64 pl-8"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             </div>
-            {currentUserRole !== "artist_manager" && (
+            {(currentUserRole === "super_admin" || (currentUserRole === "artist_manager" && type !== 'artist')) && (
               <Button onClick={() => handleOpenModal(null)}>
                 Create{" "}
                 {type === "user"
@@ -310,59 +293,114 @@ export default function UserManagementTable({
             )}
           </div>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((col) => (
-                <TableHead key={col.key}>{col.label}</TableHead>
-              ))}
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((item, index) => (
-              <TableRow key={item.id}>
+        <div className="overflow-x-auto rounded-md border">
+            <Table>
+            <TableHeader>
+                <TableRow>
                 {columns.map((col) => (
-                  <TableCell key={`${item.id}-${col.key}`}>
-                    {col.key === "is_active" ? (
-                      item.is_active ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )
-                    ) : (
-                      item[col.key]
-                    )}
-                  </TableCell>
+                    <TableHead key={col.key}>{col.label}</TableHead>
                 ))}
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenModal(item, true)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteItem(item)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {data.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                            No {type}s found{searchTerm && ' matching your search'}.
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    data.map((item) => (
+                        <TableRow key={item.id}>
+                        {columns.map((col) => (
+                            <TableCell key={`${item.id}-${col.key}`}>
+                            {col.key === "manager_id_id" && type === "artist" ? (
+                                managerMapArg.get(item.manager_id_id) || "N/A"
+                            ) : col.key === "is_active" ? (
+                                item.is_active ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                ) : (
+                                <XCircle className="h-4 w-4 text-red-500" />
+                                )
+                            ) : col.key === "date_of_birth" && item.date_of_birth ? (
+                                new Date(item.date_of_birth).toLocaleDateString()
+                            ) : (
+                                item[col.key] ?? "N/A"
+                            )}
+                            </TableCell>
+                        ))}
+                        <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenModal(item, true)}
+                                title={`Edit ${type}`}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteItem(item)}
+                                title={`Delete ${type}`}
+                            >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                            </div>
+                        </TableCell>
+                        </TableRow>
+                    ))
+                )}
+            </TableBody>
+            </Table>
+        </div>
       </>
     );
   };
 
+  const renderUserTable = () => {
+    const columns = [
+      { key: "id", label: "ID" },
+      { key: "email", label: "Email" },
+      { key: "role", label: "Role" },
+      { key: "is_active", label: "Status" },
+    ];
+    return renderTable(filteredUsers, columns, managerMap);
+  };
+
+  const renderArtistTable = () => {
+    const columns = [
+      { key: "name", label: "Name" },
+      { key: "gender", label: "Gender" },
+      { key: "address", label: "Address" },
+      { key: "date_of_birth", label: "Date of Birth" },
+      { key: "first_release_year", label: "First Release Year" },
+      { key: 'manager_id_id', label: 'Manager Name' },
+      { key: "no_of_albums_released", label: "Albums Released" },
+    ];
+    return renderTable(filteredArtists, columns, managerMap);
+  };
+
+  const renderManagerTable = () => {
+    const columns = [
+      { key: "name", label: "Name" },
+      { key: "company_name", label: "Company Name" },
+      { key: "company_email", label: "Company Email" },
+      { key: "company_phone", label: "Company Phone" },
+    ];
+    return renderTable(filteredManagers, columns, managerMap);
+  };
+
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading data...</div>;
+  }
+
   return (
-    <>
+    // Removed max-w-7xl and mx-auto to allow full width
+    <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
       {currentUserRole === "super_admin" && (
         <>
           {type === "user" && renderUserTable()}
@@ -372,15 +410,18 @@ export default function UserManagementTable({
       )}
       {currentUserRole === "artist_manager" && type === "artist" && renderArtistTable()}
       {currentUserRole === "artist" && <MusicList />}
-      <UserModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onSubmit={handleCreate}
-        initialData={selectedItem}
-        isCreating={isCreating}
-        isUpdating={isUpdating}
-        type={type}
-      />
+
+      {isModalOpen && (
+        <UserModal
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            onSubmit={isCreating ? handleCreate : (data) => handleUpdate(selectedItem!.id, data)}
+            initialData={selectedItem as Partial<User> | undefined}
+            isCreating={isCreating}
+            isUpdating={isUpdating}
+            type={type}
+        />
+      )}
       <CustomModal
         isOpen={isDeleteDialogOpen}
         onClose={cancelDelete}
@@ -388,6 +429,6 @@ export default function UserManagementTable({
         title="Are you absolutely sure?"
         description="This action cannot be undone. This will permanently delete the item."
       />
-    </>
+    </div>
   );
 }

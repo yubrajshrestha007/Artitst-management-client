@@ -132,7 +132,7 @@ export function AppSidebar({
           )}
           {role === "artist_manager" && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => router.push("/dashboard/managers")}>
+              <SidebarMenuButton onClick={() => router.push("/dashboard/artists")}>
                 <UserCog />
                 Artist List
               </SidebarMenuButton>
@@ -147,7 +147,7 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => router.push("/dashboard/musics")}>
+                <SidebarMenuButton onClick={() => router.push("/dashboard/artists")}>
                   <User />
                   Artist Profiles
                 </SidebarMenuButton>
