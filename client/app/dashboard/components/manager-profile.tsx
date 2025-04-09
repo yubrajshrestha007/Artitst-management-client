@@ -1,13 +1,13 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/manager-profile.tsx
 import { useState, useEffect, useCallback } from "react";
-import { ManagerProfile } from "@/shared/queries/manager-profile";
+import { ManagerProfile } from "@/types/auth";
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
 import { isValid, parseISO } from "date-fns";
 
 interface ManagerProfileFormProps {
   // onSubmit: (data: Partial<ManagerProfile>) => void;
-  onSubmit:()=> Partial<ManagerProfile>;
+  onSubmit: (data: Partial<ManagerProfile>) => void;
   // Change to Partial<ManagerProfile>
   initialData?: ManagerProfile;
   onCancel?: () => void;
@@ -92,20 +92,13 @@ export default function ManagerProfileForm({
         ...formData,
       };
 
-      if (isUpdateMode) {
-        // Remove extra fields not needed by the backend
-        delete dataToSubmit.user_id;
-        delete dataToSubmit.manager_id;
-        delete dataToSubmit.id;
-      }
-
       console.log("formData:", formData);
       console.log("dataToSubmit:", dataToSubmit);
       console.log("Data being sent to onSubmit:", dataToSubmit);
       onSubmit(dataToSubmit);
       setIsSubmitting(false);
     },
-    [formData, isUpdateMode, onSubmit]
+    [formData, onSubmit]
   );
 
   const handleDelete = useCallback(() => {

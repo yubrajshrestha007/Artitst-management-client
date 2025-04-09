@@ -407,7 +407,6 @@ export default function UserManagementTable({
 
   const renderUserTable = () => {
     const columns = [
-      { key: "id", label: "ID" },
       { key: "email", label: "Email" },
       { key: "role", label: "Role" },
       { key: "is_active", label: "Status" },

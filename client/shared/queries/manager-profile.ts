@@ -86,23 +86,38 @@ export const useCreateManagerProfileMutation = ({
   });
 };
 
+// Mutation hook for updating a manager profile
 export const useUpdateManagerProfileMutation = ({
   onSuccess,
   onError,
 }: UseUpdateManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
+
   return useMutation({
-    mutationFn: updateManagerProfileApi,
+    // *** FIX HERE ***
+    // Define mutationFn as an adapter function.
+    // It receives the single object { id, data } from mutate/mutateAsync.
+    // It calls updateManagerProfileApi with two separate arguments: id and data.
+    mutationFn: (variables: { id: string; data: Partial<ManagerProfile> }) =>
+      updateManagerProfileApi(variables.id, variables.data),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["managers"] });
-      invalidateProfile();
+      toast.success("Manager profile updated successfully!");
+      // Invalidate queries that might be affected
+      queryClient.invalidateQueries({ queryKey: ["managerProfile", data.id] }); // Invalidate the specific profile
+      queryClient.invalidateQueries({ queryKey: ["my-manager-profile"] }); // Invalidate current user's profile if applicable
+      queryClient.invalidateQueries({ queryKey: ["managers"] }); // Invalidate the list of managers
+      invalidateProfile(); // Invalidate generic profile state if used
       if (onSuccess) {
-        onSuccess(data);
+        onSuccess(data); // Call the callback passed from the component
       }
     },
-    onError: handleManagerMutationError,
+    onError: (error) => {
+      handleManagerMutationError(error); // Use the shared error handler
+      if (onError) {
+        onError(error); // Call the callback passed from the component
+      }
+    },
   });
 };
 
@@ -138,3 +153,4 @@ export const useManagersQuery = () => {
     },
   });
 };
+export { ManagerProfile };

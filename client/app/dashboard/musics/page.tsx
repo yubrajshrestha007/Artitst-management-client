@@ -1,5 +1,4 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/managers/page.tsx
-"use client";
 import DashboardHeader from "@/app/dashboard/components/dashboard-headers";
 import DashboardLayout from "@/app/dashboard/components/dashboard-layout";
 import MusicList from "@/app/dashboard/components/music-list"; // Import the MusicList component

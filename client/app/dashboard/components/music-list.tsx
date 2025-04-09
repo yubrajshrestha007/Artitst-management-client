@@ -1,4 +1,5 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/music-list.tsx
+"use client"
 import {
   useCreateMusicMutation,
   useDeleteMusicMutation,

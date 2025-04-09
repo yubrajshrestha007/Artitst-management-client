@@ -35,7 +35,6 @@ export default function ManagerProfilePage() {
   const { mutate: updateManagerProfile } =
     useUpdateManagerProfileMutation({
       onSuccess: () => {
-        toast.success("Manager profile updated successfully!");
         router.push("/dashboard");
       },
       onError: (error) => {
