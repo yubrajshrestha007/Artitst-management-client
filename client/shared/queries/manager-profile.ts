@@ -20,7 +20,7 @@ import { getRoleFromToken } from "../api/api-utils";
 // Helper function for consistent error handling
 const handleManagerMutationError = (error: any) => {
   const role = getRoleFromToken();
-  if (role !== "artist_manager") {
+  if (role !== "artist_manager"&& role !== "super_admin") {
     toast.error("Only manager can perform this action");
     throw new Error("Only manager can perform this action");
   }

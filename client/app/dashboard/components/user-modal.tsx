@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
+import { Loader2 } from "lucide-react"; // Import Loader icon
 
 interface UserModalProps {
   isOpen: boolean;
@@ -40,13 +41,17 @@ interface UserModalProps {
   initialData?: Partial<User>;
   isCreating?: boolean;
   isUpdating?: boolean;
-  type?: "user" | "artist" | "manager"; // Added type prop
+  isLoading?: boolean; // <-- Add prop for external loading state
+  // type?: "user" | "artist" | "manager"; // <-- Removed unused type prop
 }
 
+// Schema remains the same
 const getUserSchema = (isCreating?: boolean) => {
   if (isCreating) {
     return userSchema;
   }
+  // When updating, password is not required and shouldn't be validated unless provided
+  // We omit it here, but the backend should handle partial updates correctly
   return userSchema.omit({ password: true, confirm_password: true });
 };
 
@@ -57,33 +62,38 @@ export default function UserModal({
   initialData,
   isCreating,
   isUpdating,
-  type, // Added type prop
+  isLoading, // <-- Destructure the new prop
 }: UserModalProps) {
   const currentSchema = getUserSchema(isCreating);
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
+    // Set default values, ensuring role and is_active have fallbacks
     defaultValues: {
       email: "",
       ...(isCreating && { password: "", confirm_password: "" }),
-      role: "",
+      role: "artist", // Default role, adjust if needed
       is_active: false,
-      ...initialData,
+      ...initialData, // Spread initialData last to override defaults
     },
   });
 
+  // Reset form when initialData or mode changes
   useEffect(() => {
     const defaultVals = {
       email: "",
       ...(isCreating && { password: "", confirm_password: "" }),
-      role: "",
+      role: "artist", // Ensure default role is consistent
       is_active: false,
-      ...initialData,
+      ...initialData, // Spread initialData to populate the form for editing
     };
+    // Use form.reset to update form values and reset validation state
     form.reset(defaultVals);
-  }, [initialData, isCreating, form]);
+  }, [initialData, isCreating, form]); // Dependencies are correct
 
   const handleFormSubmit = (values: z.infer<typeof currentSchema>) => {
+    // Prevent submission if the parent component indicates loading
+    if (isLoading) return;
     console.log("UserModal submitting:", values);
     onSubmit(values);
   };
@@ -101,6 +111,7 @@ export default function UserModal({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+            {/* Email Field */}
             <FormField
               control={form.control}
               name="email"
@@ -111,8 +122,11 @@ export default function UserModal({
                     <Input
                       placeholder="user@example.com"
                       {...field}
+                      // Email should generally not be editable after creation
                       readOnly={isUpdating}
                       className={isUpdating ? "bg-gray-100 cursor-not-allowed" : ""}
+                      // Ensure email is required for creation
+                      required={isCreating}
                     />
                   </FormControl>
                   <FormMessage />
@@ -120,6 +134,7 @@ export default function UserModal({
               )}
             />
 
+            {/* Password Fields (only on create) */}
             {isCreating && (
               <>
                 <FormField
@@ -133,6 +148,7 @@ export default function UserModal({
                           type="password"
                           placeholder="••••••••"
                           {...field}
+                          required // Password is required on creation
                         />
                       </FormControl>
                       <FormMessage />
@@ -150,6 +166,7 @@ export default function UserModal({
                           type="password"
                           placeholder="••••••••"
                           {...field}
+                          required // Confirm password is required on creation
                         />
                       </FormControl>
                       <FormMessage />
@@ -159,14 +176,19 @@ export default function UserModal({
               </>
             )}
 
-            {/* Role field - Now editable */}
+            {/* Role Field */}
             <FormField
               control={form.control}
               name="role"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  {/* Use Select component for role selection */}
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value || ""} // Ensure value is not null/undefined for Select
+                    disabled={isLoading} // Disable during loading
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -177,6 +199,8 @@ export default function UserModal({
                         Artist Manager
                       </SelectItem>
                       <SelectItem value="artist">Artist</SelectItem>
+                      {/* Add super_admin if needed, but usually not assigned this way */}
+                      {/* <SelectItem value="super_admin">Super Admin</SelectItem> */}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -184,6 +208,7 @@ export default function UserModal({
               )}
             />
 
+            {/* Active Status Field */}
             <FormField
               control={form.control}
               name="is_active"
@@ -200,16 +225,30 @@ export default function UserModal({
                       checked={field.value}
                       onCheckedChange={field.onChange}
                       aria-label="Active Status"
+                      disabled={isLoading} // Disable switch while loading
                     />
                   </FormControl>
                 </FormItem>
               )}
             />
+
+            {/* Footer Buttons */}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading} // Disable Cancel button during loading
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                // Disable button if form is submitting internally OR if parent indicates loading
+                disabled={isLoading || form.formState.isSubmitting}
+              >
+                {/* Show loader icon when parent indicates loading */}
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isUpdating ? "Update User" : "Create User"}
               </Button>
             </DialogFooter>
