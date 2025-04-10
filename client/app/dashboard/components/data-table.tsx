@@ -30,7 +30,7 @@ interface DataTableProps<T extends DataItem> {
   columns: ColumnDefinition<T>[];
   onEdit: (item: T) => void;
   onDelete: (item: T) => void;
-  onView?: (item: T) => void; // <<< ADDED: Optional handler for viewing details
+  onView?: (item: T) => void;
   isLoadingEdit: boolean;
   isLoadingDelete: boolean;
   currentUserRole: string;
@@ -53,7 +53,7 @@ export const DataTable = <T extends DataItem>({
   columns,
   onEdit,
   onDelete,
-  onView, // <<< ADDED: Destructure onView
+  onView,
   isLoadingEdit,
   isLoadingDelete,
   currentUserRole,
@@ -66,12 +66,20 @@ export const DataTable = <T extends DataItem>({
   const canEditThisType = useMemo(() => {
     if (currentUserRole === "super_admin") return true;
     if (currentUserRole === "artist_manager" && itemType === "artist") return true;
+    // Artist manager can also edit their own profile if viewing managers? (Add if needed)
+    // if (currentUserRole === "artist_manager" && itemType === "manager" && /* check if item is self */) return true;
     return false;
   }, [currentUserRole, itemType]);
 
   const canDeleteThisType = useMemo(() => {
-    return currentUserRole === "super_admin";
-  }, [currentUserRole]);
+    // Super Admin can delete anything
+    if (currentUserRole === "super_admin") return true;
+    // Artist Manager can delete Artists
+    if (currentUserRole === "artist_manager" && itemType === "artist") return true;
+    // No other roles can delete by default
+    return false;
+    // --- Updated Dependency Array ---
+  }, [currentUserRole, itemType]); // <<< ADD itemType to dependency array
   // --- END Permissions ---
 
 
@@ -149,19 +157,19 @@ export const DataTable = <T extends DataItem>({
                 ))}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {/* <<< ADDED: View Button >>> */}
+                    {/* View Button */}
                     {onView && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onView(item)} // Call onView handler
+                        onClick={() => onView(item)}
                         title={`View ${itemType}`}
-                        disabled={isLoadingEdit || isLoadingDelete} // Disable during other actions
+                        disabled={isLoadingEdit || isLoadingDelete}
                       >
                         <Eye className="h-4 w-4 text-blue-500" />
                       </Button>
                     )}
-                    {/* --- Edit Button --- */}
+                    {/* Edit Button */}
                     {canEditThisType && (
                       <Button
                         variant="ghost"
@@ -173,8 +181,8 @@ export const DataTable = <T extends DataItem>({
                         <Pencil className="h-4 w-4" />
                       </Button>
                     )}
-                    {/* --- Delete Button --- */}
-                    {canDeleteThisType && (
+                    {/* Delete Button */}
+                    {canDeleteThisType && ( // Logic updated here
                       <Button
                         variant="ghost"
                         size="icon"

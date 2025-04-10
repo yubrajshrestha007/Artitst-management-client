@@ -10,12 +10,7 @@ export type DetailItem = User | ArtistProfile | ManagerProfile | Music;
 export type ItemType = "user" | "artist" | "manager" | "music";
 
 // Helper to safely get nested values (reuse from DataTable or define here)
-const getNestedValue = (obj: unknown, path: string): unknown => {
-  if (typeof obj !== 'object' || obj === null) return undefined;
-  return path.split('.').reduce((acc, part) => acc && (acc as Record<string, unknown>)[part], obj);
-};
 
-// Helper to format dates consistently
 const formatDate = (value: unknown): React.ReactNode => {
   if (!value) return "N/A";
   try {

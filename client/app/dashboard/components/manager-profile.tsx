@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ManagerProfile } from "@/types/auth";
 import {
@@ -15,8 +15,8 @@ import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profil
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Form } from "@/components/ui/form";
-import { ManagerFormFields } from "./manager-form"; // Import new components
-import { ManagerFormFooter } from "./manager-footer";
+import { ManagerFormFields } from "./manager-form"; // Corrected import path
+import { ManagerFormFooter } from "./manager-footer"; // Corrected import path
 
 interface ManagerProfileFormProps {
   onSubmit: (data: Partial<ManagerProfile>) => Promise<void> | void;
@@ -78,24 +78,38 @@ export default function ManagerProfileForm({
   });
 
   // Form Submission Handler
-  const handleFormSubmit = async (values: ManagerProfileFormValues) => {
+  const handleFormSubmit: SubmitHandler<ManagerProfileFormValues> = async (values) => {
     if (isLoading || isDeleting) return;
 
+    // Start building the payload, initially excluding date_of_birth
     const dataToSubmit: Partial<ManagerProfile> = {
-      ...values,
+      name: values.name,
+      company_name: values.company_name,
+      company_email: values.company_email,
+      company_phone: values.company_phone,
       gender: values.gender || null,
       address: values.address || null,
-      date_of_birth: values.date_of_birth ? new Date(values.date_of_birth).toISOString() : null,
+      // date_of_birth is handled below
     };
 
-    if (isUpdateMode && initialData?.id) {
-      dataToSubmit.id = initialData.id;
-    } else {
-      delete dataToSubmit.id;
+    // --- FIX: Conditionally add date_of_birth only if it's a non-empty string ---
+    if (values.date_of_birth && values.date_of_birth.trim() !== "") {
+      // Ensure it's in YYYY-MM-DD format (input type="date" should guarantee this)
+      dataToSubmit.date_of_birth = values.date_of_birth;
     }
-    delete dataToSubmit.user_id; // Never submit user_id from here
 
-    await onSubmit(dataToSubmit);
+    if (isUpdateMode && initialData?.id) {
+      dataToSubmit.id = initialData.id; // Add id for update
+      delete dataToSubmit.user_id; // Don't send user_id on update
+    } else if (!isUpdateMode) {
+      delete dataToSubmit.id; // Ensure no id on create
+      delete dataToSubmit.user_id; // user_id usually linked separately
+    }
+
+    // --- Add console log before submitting ---
+    // --- End console log ---
+
+    await onSubmit(dataToSubmit); // Call parent onSubmit
   };
 
   // Delete Handler

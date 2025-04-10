@@ -16,8 +16,11 @@ export const UserFormFooter = ({
   isLoading,
   isUpdating,
 }: UserFormFooterProps) => {
+  // Log the loading state right before rendering the button
+  console.log(`%cUserFormFooter: isLoading prop = ${isLoading}`, 'color: gray;');
+
   return (
-    <DialogFooter className="pt-4"> {/* Added padding-top */}
+    <DialogFooter className="pt-4">
       <Button
         type="button"
         variant="outline"
