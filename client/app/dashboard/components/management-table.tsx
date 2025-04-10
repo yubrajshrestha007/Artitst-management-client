@@ -1,9 +1,7 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/management-table.tsx
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react"; // Import useState
 import { Loader2 } from "lucide-react";
-// Removed MusicList import, handled by ManagementView
-// import MusicList from "./music-list";
 import { ColumnDefinition } from "./data-table"; // Keep if needed for casting
 import { ManagementModals } from "./management-modal";
 import { ManagementView } from "./management-view"; // Import the new view component
@@ -12,6 +10,8 @@ import { useManagementData } from "@/hooks/use-management";
 import { useManagementMutations } from "@/hooks/use-management-mutation";
 import { useManagementModals } from "@/hooks/use-management-modal";
 import { ArtistProfile, User, ManagerProfile } from "@/types/auth";
+import { ItemDetailModal } from "./item-detail-modal"; // Import the detail modal
+import { ItemType } from "@/config/detailViewConfig"; // Import ItemType
 
 type DataItem = User | ArtistProfile | ManagerProfile;
 type CreateData = Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
@@ -52,6 +52,10 @@ export default function UserManagementTable({
     resetModalState,
   } = useManagementModals();
 
+  // --- State for Detail Modal ---
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [itemForDetail, setItemForDetail] = useState<DataItem | null>(null);
+
   const {
     submitMutation,
     deleteMutation,
@@ -79,6 +83,19 @@ export default function UserManagementTable({
   const confirmDelete = () => {
     if (selectedItem?.id) { deleteMutation(selectedItem.id); }
   };
+
+  // Handler to open the detail modal
+  const handleViewDetails = (item: DataItem) => {
+    setItemForDetail(item);
+    setIsDetailModalOpen(true);
+  };
+
+  // Handler to close the detail modal
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setItemForDetail(null); // Clear item when closing
+  };
+
 
   // --- Render Logic ---
   if (isLoadingQueries) {
@@ -109,12 +126,13 @@ export default function UserManagementTable({
         columns={columns as ColumnDefinition<DataItem>[]}
         onEdit={handleOpenModalForEdit}
         onDelete={handleDeleteRequest}
+        onView={handleViewDetails} // <<< Pass the view handler
         isLoadingEdit={isLoadingUpdate}
         isLoadingDelete={isLoadingDelete}
         managerMap={managerMap}
       />
 
-      {/* Modals remain the same */}
+      {/* Create/Update/Delete Modals */}
       <ManagementModals
         isModalOpen={isModalOpen}
         isDeleteDialogOpen={isDeleteDialogOpen}
@@ -130,6 +148,15 @@ export default function UserManagementTable({
         onConfirmDelete={confirmDelete}
         onSubmit={handleFormSubmit}
         currentUserId={type === 'artist' ? (selectedItem as ArtistProfile)?.user_id : undefined}
+      />
+
+      {/* <<< ADDED: Detail View Modal >>> */}
+      <ItemDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseDetailModal}
+        item={itemForDetail}
+        itemType={type as ItemType | null} // Pass the current table type
+        managerMap={managerMap} // Pass managerMap for artist details
       />
     </div>
   );

@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: '/', // Match the root path exactly
+        destination: '/login', // Redirect to the login page
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -2,8 +2,8 @@
 "use client";
 
 import MusicList from "./music-list";
-import { DataTableHeader } from "./data-header"; // Import the header
-import { DataTable, ColumnDefinition } from "./data-table"; // Import the table
+import { DataTableHeader } from "./data-header"; // Corrected import path
+import { DataTable, ColumnDefinition } from "./data-table";
 import { ArtistProfile, User, ManagerProfile } from "@/types/auth";
 
 type DataItem = User | ArtistProfile | ManagerProfile;
@@ -11,7 +11,7 @@ type ManagementType = "user" | "artist" | "manager";
 
 interface ManagementViewProps<T extends DataItem> {
   currentUserRole: string;
-  type?: ManagementType; // Type might be undefined initially
+  type?: ManagementType;
 
   title?: string;
   searchPlaceholder?: string;
@@ -25,6 +25,7 @@ interface ManagementViewProps<T extends DataItem> {
   columns?: ColumnDefinition<T>[];
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  onView?: (item: T) => void; // Prop exists here
   isLoadingEdit?: boolean;
   isLoadingDelete?: boolean;
   managerMap?: Map<string, string>;
@@ -33,8 +34,7 @@ interface ManagementViewProps<T extends DataItem> {
 export const ManagementView = <T extends DataItem>({
   currentUserRole,
   type,
-  // Destructure all potential props
-  title = "Management", // Default title
+  title = "Management",
   searchPlaceholder = "Search...",
   searchTerm = "",
   onSearchChange = () => {},
@@ -46,20 +46,19 @@ export const ManagementView = <T extends DataItem>({
   columns = [],
   onEdit = () => {},
   onDelete = () => {},
+  onView, // Destructure onView here
   isLoadingEdit = false,
   isLoadingDelete = false,
   managerMap,
 }: ManagementViewProps<T>) => {
 
-  // Artist View
   if (currentUserRole === "artist") {
     return <MusicList />;
   }
 
-  // Other roles with a selected type - Render Header and Table directly
   if (type) {
     return (
-      <> {/* Use a fragment to group Header and Table */}
+      <>
         <DataTableHeader
           title={title}
           searchPlaceholder={searchPlaceholder}
@@ -75,12 +74,13 @@ export const ManagementView = <T extends DataItem>({
           columns={columns}
           onEdit={onEdit}
           onDelete={onDelete}
+          onView={onView} // <<< ADD THIS LINE
           isLoadingEdit={isLoadingEdit}
           isLoadingDelete={isLoadingDelete}
           currentUserRole={currentUserRole}
-          itemType={type} // Pass the specific type
+          itemType={type}
           managerMap={managerMap}
-          searchTerm={searchTerm} // Pass searchTerm for empty state message
+          searchTerm={searchTerm}
         />
       </>
     );

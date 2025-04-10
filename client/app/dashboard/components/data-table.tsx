@@ -10,7 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
+// Import Eye icon
+import { Pencil, Trash2, CheckCircle, XCircle, Eye } from "lucide-react";
 import { User, ArtistProfile, ManagerProfile } from "@/types/auth"; // Import necessary types
 import { useMemo } from "react"; // Import useMemo
 
@@ -29,6 +30,7 @@ interface DataTableProps<T extends DataItem> {
   columns: ColumnDefinition<T>[];
   onEdit: (item: T) => void;
   onDelete: (item: T) => void;
+  onView?: (item: T) => void; // <<< ADDED: Optional handler for viewing details
   isLoadingEdit: boolean;
   isLoadingDelete: boolean;
   currentUserRole: string;
@@ -51,6 +53,7 @@ export const DataTable = <T extends DataItem>({
   columns,
   onEdit,
   onDelete,
+  onView, // <<< ADDED: Destructure onView
   isLoadingEdit,
   isLoadingDelete,
   currentUserRole,
@@ -59,8 +62,7 @@ export const DataTable = <T extends DataItem>({
   searchTerm,
 }: DataTableProps<T>) => {
 
-  // --- FIX: Calculate permissions based on props, not per item ---
-  // Use useMemo to calculate these once per render based on props
+  // --- Calculate permissions based on props ---
   const canEditThisType = useMemo(() => {
     if (currentUserRole === "super_admin") return true;
     if (currentUserRole === "artist_manager" && itemType === "artist") return true;
@@ -70,7 +72,7 @@ export const DataTable = <T extends DataItem>({
   const canDeleteThisType = useMemo(() => {
     return currentUserRole === "super_admin";
   }, [currentUserRole]);
-  // --- END FIX ---
+  // --- END Permissions ---
 
 
   const renderCellContent = (item: T, column: ColumnDefinition<T>): React.ReactNode => {
@@ -92,10 +94,8 @@ export const DataTable = <T extends DataItem>({
     }
     if (column.key === "date_of_birth" && value) {
        try {
-           // Ensure value is treated as string or number before passing to Date
            const dateValue = typeof value === 'string' || typeof value === 'number' ? value : String(value);
            const date = new Date(dateValue);
-           // Check if date is valid
            if (isNaN(date.getTime())) return "Invalid Date";
            return date.toLocaleDateString();
        } catch {
@@ -109,7 +109,6 @@ export const DataTable = <T extends DataItem>({
     // Fallback for other types
     if (value === null || typeof value === 'undefined') return "N/A";
     if (typeof value === 'boolean') return value ? "Yes" : "No";
-    // Check if it's a valid date object before formatting
     if (value instanceof Date && !isNaN(value.getTime())) return value.toLocaleString();
 
     return String(value);
@@ -121,7 +120,6 @@ export const DataTable = <T extends DataItem>({
       <Table>
         <TableHeader>
           <TableRow>
-            {/* Add S.N. Header */}
             <TableHead key="sn">S.N.</TableHead>
             {columns.map((col) => (
               <TableHead key={String(col.key)}>{col.label}</TableHead>
@@ -143,7 +141,6 @@ export const DataTable = <T extends DataItem>({
           ) : (
             data.map((item, index) => (
               <TableRow key={item.id ?? index}>
-                {/* Add S.N. Cell */}
                 <TableCell key={`${item.id ?? index}-sn`}>{index + 1}</TableCell>
                 {columns.map((col) => (
                   <TableCell key={`${item.id ?? index}-${String(col.key)}`}>
@@ -152,30 +149,42 @@ export const DataTable = <T extends DataItem>({
                 ))}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {/* --- FIX: Use the calculated boolean constants --- */}
+                    {/* <<< ADDED: View Button >>> */}
+                    {onView && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onView(item)} // Call onView handler
+                        title={`View ${itemType}`}
+                        disabled={isLoadingEdit || isLoadingDelete} // Disable during other actions
+                      >
+                        <Eye className="h-4 w-4 text-blue-500" />
+                      </Button>
+                    )}
+                    {/* --- Edit Button --- */}
                     {canEditThisType && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onEdit(item)} // Still pass item to the actual handler
+                        onClick={() => onEdit(item)}
                         title={`Edit ${itemType}`}
                         disabled={isLoadingEdit || isLoadingDelete}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     )}
+                    {/* --- Delete Button --- */}
                     {canDeleteThisType && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onDelete(item)} // Still pass item to the actual handler
+                        onClick={() => onDelete(item)}
                         title={`Delete ${itemType}`}
                         disabled={isLoadingEdit || isLoadingDelete}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     )}
-                    {/* --- END FIX --- */}
                   </div>
                 </TableCell>
               </TableRow>

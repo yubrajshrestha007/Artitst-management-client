@@ -11,7 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
+// Import Eye icon
+import { Pencil, Trash2, Eye } from "lucide-react";
 
 // Format date for display in the table
 const formatDateForDisplay = (dateString: string | null | undefined) => {
@@ -30,6 +31,7 @@ interface MusicTableProps {
   musicList: Music[];
   onEdit: (music: Music) => void;
   onDelete: (music: Music) => void;
+  onView?: (music: Music) => void; // <<< ADDED: Optional handler for viewing details
   isLoadingEdit: boolean;
   isLoadingDelete: boolean;
 }
@@ -38,9 +40,13 @@ export const MusicTable = ({
   musicList,
   onEdit,
   onDelete,
+  onView, // <<< ADDED: Destructure onView
   isLoadingEdit,
   isLoadingDelete,
 }: MusicTableProps) => {
+  // Combine loading states for disabling actions
+  const isActionLoading = isLoadingEdit || isLoadingDelete;
+
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table>
@@ -69,21 +75,35 @@ export const MusicTable = ({
                 <TableCell>{formatDateForDisplay(music.release_date)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    {/* <<< ADDED: View Button >>> */}
+                    {onView && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onView(music)} // Call onView handler
+                        title="View Music Details"
+                        disabled={isActionLoading} // Disable during other actions
+                      >
+                        <Eye className="h-4 w-4 text-blue-500" />
+                      </Button>
+                    )}
+                    {/* --- Edit Button --- */}
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => onEdit(music)}
                       title="Edit Music"
-                      disabled={isLoadingEdit} // Use specific loading state
+                      disabled={isActionLoading} // Use combined loading state
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
+                    {/* --- Delete Button --- */}
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(music)}
                       title="Delete Music"
-                      disabled={isLoadingDelete} // Use specific loading state
+                      disabled={isActionLoading} // Use combined loading state
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
