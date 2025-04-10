@@ -2,15 +2,16 @@
 "use client";
 import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import MusicList from "./music-list"; // For artist role view
-import { DataTableHeader } from "./data-header";
-import { DataTable } from "./data-table";
+// Removed MusicList import, handled by ManagementView
+// import MusicList from "./music-list";
+import { ColumnDefinition } from "./data-table"; // Keep if needed for casting
 import { ManagementModals } from "./management-modal";
-import { getManagementConfig } from "./management-colums"; // Import management config
-import { useManagementData } from "@/hooks/use-management"; // Import hooks
+import { ManagementView } from "./management-view"; // Import the new view component
+import { getManagementConfig } from "./management-colums";
+import { useManagementData } from "@/hooks/use-management";
 import { useManagementMutations } from "@/hooks/use-management-mutation";
-import { useManagementModals } from "@/hooks/use-management-modal"; // Import modals hook
-import { ArtistProfile, User, ManagerProfile } from "@/types/auth"; // Import types
+import { useManagementModals } from "@/hooks/use-management-modal";
+import { ArtistProfile, User, ManagerProfile } from "@/types/auth";
 
 type DataItem = User | ArtistProfile | ManagerProfile;
 type CreateData = Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
@@ -19,7 +20,7 @@ type UpdateDataInput = Partial<User> | Partial<ArtistProfile> | Partial<ManagerP
 interface UserManagementTableProps {
   currentUserRole: string;
   type?: "user" | "artist" | "manager";
-  filteredData?: ArtistProfile[]; // For manager view
+  filteredData?: ArtistProfile[];
 }
 
 export default function UserManagementTable({
@@ -59,32 +60,24 @@ export default function UserManagementTable({
     isLoadingDelete,
     isMutating,
   } = useManagementMutations(type, {
-      // Callbacks to sync modal state with mutation state
-      onSuccess: (_action, _itemType) => {
-          resetModalState(); // Close modals and reset state on success
-      },
-      onDeleteSettled: () => {
-          resetModalState(); // Close modals and reset state after delete attempt
-      },
-      // onError: (error, action, itemType) => { /* Optional: Add specific error handling */ }
+      onSuccess: () => { resetModalState(); },
+      onDeleteSettled: () => { resetModalState(); },
   });
 
   // --- Config ---
   const { columns, title, createLabel } = useMemo(() => getManagementConfig(type), [type]);
   const showCreateButton = currentUserRole === "super_admin" ||
                            (currentUserRole === "artist_manager" && type === "manager");
+  const searchPlaceholder = `Search by ${type === "user" ? "email" : "name"}...`;
 
   // --- Handlers ---
   const handleFormSubmit = async (data: CreateData | UpdateDataInput) => {
-      // submitMutation handles success/error internally and calls onSuccess callback
-      await submitMutation(data, isCreating, selectedItem?.id);
+      try { await submitMutation(data, isCreating, selectedItem?.id); }
+      catch (error) { console.error("Submit mutation failed:", error); }
   };
 
   const confirmDelete = () => {
-    if (selectedItem?.id) {
-      // deleteMutation handles success/error internally and calls onDeleteSettled callback
-      deleteMutation(selectedItem.id);
-    }
+    if (selectedItem?.id) { deleteMutation(selectedItem.id); }
   };
 
   // --- Render Logic ---
@@ -99,38 +92,29 @@ export default function UserManagementTable({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-      {currentUserRole === "artist" ? (
-        <MusicList />
-      ) : type ? (
-        <>
-          <DataTableHeader
-            title={title}
-            searchPlaceholder={`Search by ${type === "user" ? "email" : "name"}...`}
-            searchTerm={searchTerm}
-            onSearchChange={(e) => setSearchTerm(e.target.value)}
-            createButtonLabel={createLabel}
-            onCreate={handleOpenModalForCreate}
-            showCreateButton={showCreateButton}
-            isActionLoading={isMutating} // Use combined mutation loading state
-          />
+      {/* Render the main view component */}
+      <ManagementView
+        currentUserRole={currentUserRole}
+        type={type}
+        // Pass all relevant props needed by ManagementTableView
+        title={title}
+        searchPlaceholder={searchPlaceholder}
+        searchTerm={searchTerm}
+        onSearchChange={(e) => setSearchTerm(e.target.value)}
+        createButtonLabel={createLabel}
+        onCreate={handleOpenModalForCreate}
+        showCreateButton={showCreateButton}
+        isActionLoading={isMutating}
+        data={dataToDisplay as DataItem[]}
+        columns={columns as ColumnDefinition<DataItem>[]}
+        onEdit={handleOpenModalForEdit}
+        onDelete={handleDeleteRequest}
+        isLoadingEdit={isLoadingUpdate}
+        isLoadingDelete={isLoadingDelete}
+        managerMap={managerMap}
+      />
 
-          <DataTable
-            data={dataToDisplay as DataItem[]} // Cast needed due to hook return type
-            columns={columns as any} // Cast needed due to hook return type
-            onEdit={handleOpenModalForEdit}
-            onDelete={handleDeleteRequest}
-            isLoadingEdit={isLoadingUpdate} // Pass specific loading states
-            isLoadingDelete={isLoadingDelete}
-            currentUserRole={currentUserRole}
-            itemType={type}
-            managerMap={managerMap}
-            searchTerm={searchTerm}
-          />
-        </>
-      ) : (
-        <div>Select a management category.</div>
-      )}
-
+      {/* Modals remain the same */}
       <ManagementModals
         isModalOpen={isModalOpen}
         isDeleteDialogOpen={isDeleteDialogOpen}
