@@ -80,3 +80,35 @@ export const formatDateForInput = (date: string | Date | null | undefined): stri
     return "";
   }
 };
+// schemas/auth.ts (or similar)
+import * as z from "zod";
+
+export const userFormSchema = z.object({
+  id: z.string().optional(), // Only present in edit mode
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }).optional(),
+  confirm_password: z.string().optional(),
+  is_active: z.boolean().default(true),
+  role: z.enum(["artist", "artist_manager"], {
+    required_error: "Role is required.",
+  }),
+}).refine((data) => {
+  // If password exists, confirm_password must match
+  if (data.password && data.password !== data.confirm_password) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Passwords don't match",
+  path: ["confirm_password"], // Set error on confirm_password field
+});
+
+export type UserFormValues = z.infer<typeof userFormSchema>;
+
+export const userFormDefaultValues: Partial<UserFormValues> = {
+  email: "",
+  password: "",
+  confirm_password: "",
+  is_active: true,
+  role: undefined, // Start with undefined or a default based on context
+};
