@@ -18,13 +18,17 @@ import { useInvalidateProfile } from "./profiles";
 import { getRoleFromToken } from "../api/api-utils";
 
 // Helper function for consistent error handling
-const handleManagerMutationError = (error: any) => {
+const handleManagerMutationError = (error: unknown) => {
   const role = getRoleFromToken();
   if (role !== "artist_manager"&& role !== "super_admin") {
     toast.error("Only manager can perform this action");
     throw new Error("Only manager can perform this action");
   }
-  toast.error(error.message || "An error occurred");
+  if (error instanceof Error) {
+    toast.error(error.message || "An error occurred");
+  } else {
+    toast.error("An unknown error occurred");
+  }
   throw error; // Re-throw the error to propagate it
 };
 
@@ -59,16 +63,11 @@ export const useManagerProfileQuery = (id: string) => {
     },
     enabled: !!id,
     retry: false,
-    onError: (error) => {
-      toast.error(error.message || "Failed to fetch manager profile");
-      throw error; // Re-throw the error to propagate it
-    },
   });
 };
 
 export const useCreateManagerProfileMutation = ({
   onSuccess,
-  onError,
 }: UseCreateManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
@@ -123,7 +122,6 @@ export const useUpdateManagerProfileMutation = ({
 
 export const useDeleteManagerProfileMutation = ({
   onSuccess,
-  onError,
 }: UseDeleteManagerProfileMutationOptions = {}) => {
   const queryClient = useQueryClient();
   const { mutate: invalidateProfile } = useInvalidateProfile();
@@ -144,13 +142,15 @@ export const useDeleteManagerProfileMutation = ({
 export const useManagersQuery = () => {
   return useQuery<ManagerProfile[], Error>({
     queryKey: ["managers"],
-    queryFn: fetchManagers,
-    retry: false,
-    onError: (error) => {
-      console.error("Error fetching managers:", error);
-      toast.error(error.message || "Failed to fetch managers");
-      throw error;
+    queryFn: async () => {
+      try {
+        return await fetchManagers();
+      } catch (error) {
+        console.error("Error fetching managers:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to fetch managers");
+        throw error;
+      }
     },
+    retry: false,
   });
 };
-export { ManagerProfile };

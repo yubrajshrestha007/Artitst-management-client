@@ -67,15 +67,19 @@ export interface UseDeleteArtistProfileMutationOptions {
 }
 
 
+// --- ADD THIS INTERFACE ---
 export interface ManagerProfile {
-  id?: string;
-  name: string;
-  company_name: string;
-  company_email: string;
-  company_phone: string;
-  gender: string;
-  address: string;
-  date_of_birth: string | null;
+  id?: string; // Optional for creation
+  user_id?: string; // Needed for creation
+  name?: string | null;
+  date_of_birth?: string | Date | null;
+  gender?: string | null;
+  address?: string | null;
+  company_name?: string | null;
+  company_email?: string | null;
+  company_phone?: string | null;
+  created?: string | Date | null; // Added for dashboard card
+  updated?: string | Date | null;
 }
 export interface ArtistProfile {
   id?: string;
@@ -85,6 +89,8 @@ export interface ArtistProfile {
   address: string;
   first_release_year: number | null;
   no_of_albums_released: number;
+  created?: string | Date | null; // Added for dashboard card
+  updated?: string | Date | null;
   manager_id_id: string | null;
   user_id?: string | null;
 }

@@ -1,56 +1,22 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/artists/page.tsx
-"use client";
-import DashboardHeader from "@/app/dashboard/components/dashboard-headers";
-import DashboardLayout from "@/app/dashboard/components/dashboard-layout";
-import UserManagementTable from "@/app/dashboard/components/management-table";
-import { useUsersQuery } from "@/shared/queries/users";
-import { useAuth } from "@/hooks/auth"; // Import useAuth
-import { useMyManagerProfileQuery } from "@/shared/queries/profiles"; // Import useMyManagerProfileQuery
-import { useMemo } from "react";
-import { useArtistProfileListQuery } from "@/shared/queries/artist-profile";
+// NO "use client" directive here - this is now a Server Component
 
+import DashboardHeader from "@/app/dashboard/components/dashboard-headers"; // Keep as client component if needed internally
+import DashboardLayout from "@/app/dashboard/components/dashboard-layout"; // Keep as client component if needed internally
+import ArtistManagementClient from "./artist-management"; // Import the new client component
+
+// This page component is now very simple
 export default function ArtistProfileManagementPage() {
-  const { data: usersData } = useUsersQuery();
-  const currentUserRole = usersData?.currentUserRole || "";
-  const { userId } = useAuth(); // Get the logged-in user's ID
-  const { data: managerProfile, isLoading: isManagerProfileLoading } =
-    useMyManagerProfileQuery(!!userId); // Fetch the manager's profile
-  const { data: artistProfileData, isLoading: isArtistProfilesLoading } =
-    useArtistProfileListQuery();
-  const artistProfiles = Array.isArray(artistProfileData) ? artistProfileData : [];
-
-  // Get the manager's ID from the profile
-  const managerId = managerProfile?.id;
-
-  // Filter artist profiles based on the manager's ID
-  const filteredArtistProfiles = useMemo(() => {
-    if (currentUserRole !== "artist_manager" || !managerId) {
-      return artistProfiles; // Return all if not a manager or no manager ID
-    }
-    return artistProfiles.filter(
-      (artist) => artist.manager_id_id === managerId
-    );
-  }, [artistProfiles, managerId, currentUserRole]);
-
-  const isLoading = isManagerProfileLoading || isArtistProfilesLoading;
-
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <DashboardHeader />
-        <div className="p-4 text-center">Loading...</div>
-      </DashboardLayout>
-    );
-  }
+  // No hooks or client-side logic here
 
   return (
+    // DashboardLayout and DashboardHeader likely need to remain Client Components
+    // or be structured to work within a Server Component parent if possible.
+    // Assuming they handle their own client-side needs or wrap client components.
     <DashboardLayout>
       <DashboardHeader />
-      <UserManagementTable
-        currentUserRole={currentUserRole}
-        type="artist"
-        filteredData={filteredArtistProfiles} // Pass the filtered data
-      />
+      {/* Render the Client Component which handles the data fetching and table rendering */}
+      <ArtistManagementClient />
     </DashboardLayout>
   );
 }

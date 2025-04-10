@@ -34,7 +34,7 @@ export const useMusicQuery = (id: string) => {
 };
 
 // Create music
-export const useCreateMusicMutation = () => {
+export const useCreateMusicMutation = (p0: { onSuccess: () => void; onError: (error: unknown) => void; }) => {
   const queryClient = useQueryClient();
   const {
     data: profile,
@@ -77,7 +77,7 @@ export const useCreateMusicMutation = () => {
 };
 
 // Update music
-export const useUpdateMusicMutation = () => {
+export const useUpdateMusicMutation = (p0: { onSuccess: () => void; onError: (error: unknown) => void; }) => {
   const queryClient = useQueryClient();
   const { data: profile, isSuccess: isProfileSuccess, isFetching: isProfileFetching } = useMyArtistProfileQuery(true);
   return useMutation({
@@ -102,7 +102,7 @@ export const useUpdateMusicMutation = () => {
 ;
 
 // Delete music
-export const useDeleteMusicMutation = () => {
+export const useDeleteMusicMutation = (p0: { onSuccess: () => void; onError: (error: unknown) => void; }) => {
   const queryClient = useQueryClient();
   const { data: profile, isSuccess: isProfileSuccess, isFetching: isProfileFetching } = useMyArtistProfileQuery(true);
   return useMutation({

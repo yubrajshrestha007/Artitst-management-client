@@ -23,6 +23,7 @@ interface CustomModalProps {
   cancelText?: string;
   isConfirmLoading?: boolean; // Add loading state for confirm button
   className?: string; // Allow passing custom class for DialogContent
+  hideFooter?: boolean; // Optional prop to hide footer
 }
 
 export function CustomModal({

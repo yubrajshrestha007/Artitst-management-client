@@ -6,23 +6,16 @@ import {
   useUpdateUserMutation,
   useUsersQuery,
 } from "@/shared/queries/users";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import UserModal from "./user-modal"; // User modal component
+import { useState, useCallback, useMemo } from "react";
+// Removed direct modal/form imports if only used in ManagementModals
+// import UserModal from "./user-modal";
+// import ManagerProfileForm from "./manager-profile";
+// import ArtistProfileForm from "./artist-profile";
+// import { CustomModal } from "@/components/ui/custom-modal";
 import { User, ArtistProfile, ManagerProfile } from "@/types/auth";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Pencil, Trash2, Search, CheckCircle, XCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { CustomModal } from "@/components/ui/custom-modal"; // Generic modal wrapper
 import { useQueryClient } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
 import MusicList from "./music-list"; // For artist role view
 import {
   useCreateArtistProfileMutation,
@@ -36,13 +29,18 @@ import {
   useUpdateManagerProfileMutation,
   useManagersQuery,
 } from "@/shared/queries/manager-profile";
-import ManagerProfileForm from "./manager-profile"; // Manager form component
-import ArtistProfileForm from "./artist-profile"; // <-- ***** IMPORT THE ARTIST FORM *****
+
+import { DataTableHeader } from "./data-header";
+import { DataTable, ColumnDefinition } from "./data-table";
+import { ManagementModals } from "./management-modal"; // Import the new component
+
+// Define a union type for the items the table can display
+type DataItem = User | ArtistProfile | ManagerProfile;
 
 interface UserManagementTableProps {
   currentUserRole: string;
   type?: "user" | "artist" | "manager";
-  filteredData?: ArtistProfile[]; // For manager viewing specific artists
+  filteredData?: ArtistProfile[];
 }
 
 // Use Partial for all create/update types for flexibility
@@ -52,6 +50,26 @@ type UpdateData = {
   data: Partial<User> | Partial<ArtistProfile> | Partial<ManagerProfile>;
 };
 
+// Define a more specific type for Axios-like errors if possible, or use a helper
+interface AxiosErrorLike {
+    response?: {
+        data?: {
+            detail?: string;
+            message?: string;
+            [key: string]: unknown;
+        };
+        [key: string]: unknown;
+    };
+    message?: string;
+    [key: string]: unknown;
+}
+
+// Type guard to check if an error looks like an Axios error
+function isAxiosErrorLike(error: unknown): error is AxiosErrorLike {
+    return typeof error === 'object' && error !== null && 'response' in error;
+}
+
+
 export default function UserManagementTable({
   currentUserRole,
   type,
@@ -59,7 +77,7 @@ export default function UserManagementTable({
 }: UserManagementTableProps) {
   const queryClient = useQueryClient();
 
-  // --- Queries & Mutations (Keep as they are) ---
+  // --- Queries & Mutations ---
   const { data: usersData, isLoading: isUsersLoading } = useUsersQuery();
   const createUserMutation = useCreateUserMutation();
   const updateUserMutation = useUpdateUserMutation();
@@ -77,9 +95,9 @@ export default function UserManagementTable({
   const updateManagerProfileMutation = useUpdateManagerProfileMutation();
   const deleteManagerProfileMutation = useDeleteManagerProfileMutation();
 
-  // --- Memoized Data (Keep as they are) ---
+  // --- Memoized Raw Data ---
   const users = useMemo(() => usersData?.users || [], [usersData]);
-  const artistProfiles = useMemo(
+  const allArtistProfiles = useMemo(
     () => (Array.isArray(artistProfileData) ? artistProfileData : []),
     [artistProfileData]
   );
@@ -97,162 +115,156 @@ export default function UserManagementTable({
     return map;
   }, [managerProfiles]);
 
-  // --- State (Keep as they are) ---
+  // --- State ---
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState(users);
-  const [filteredArtists, setFilteredArtists] = useState<ArtistProfile[]>([]);
-  const [filteredManagers, setFilteredManagers] = useState(managerProfiles);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<
-    User | ArtistProfile | ManagerProfile | null
-  >(null);
+  const [selectedItem, setSelectedItem] = useState<DataItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const isLoading =
+  const isLoadingQueries =
     isUsersLoading || isArtistProfilesLoading || isManagerProfilesLoading;
 
-  // --- Invalidation Callback (Keep as it is) ---
+  const isMutating = // Combined loading state for header button
+    createUserMutation.isPending ||
+    updateUserMutation.isPending ||
+    deleteUserMutation.isPending ||
+    createArtistProfileMutation.isPending ||
+    updateArtistProfileMutation.isPending ||
+    deleteArtistProfileMutation.isPending ||
+    createManagerProfileMutation.isPending ||
+    updateManagerProfileMutation.isPending ||
+    deleteManagerProfileMutation.isPending;
+
+  // --- Memoized Filtered Data ---
+  const dataToDisplay = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    switch (type) {
+      case "user":
+        return users.filter((user) => user.email.toLowerCase().includes(term));
+      case "artist":
+        const profilesToFilter = filteredData || allArtistProfiles;
+        return profilesToFilter.filter(
+          (artist) =>
+            artist.name?.toLowerCase().includes(term) ||
+            managerMap.get(artist.manager_id_id || "")?.toLowerCase().includes(term)
+        );
+      case "manager":
+        return managerProfiles.filter((manager) =>
+          manager.name?.toLowerCase().includes(term)
+        );
+      default:
+        return [];
+    }
+  }, [searchTerm, type, users, allArtistProfiles, managerProfiles, managerMap, filteredData]);
+
+
+  // --- Invalidation Callback ---
   const invalidateQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["users"] });
     queryClient.invalidateQueries({ queryKey: ["artist-profiles"] });
     queryClient.invalidateQueries({ queryKey: ["managers"] });
   }, [queryClient]);
 
-  // --- Effects for Filtering (Keep as they are, maybe refine artist search) ---
-  useEffect(() => {
-    const term = searchTerm.toLowerCase();
-    if (type === "user") {
-      setFilteredUsers(
-        users.filter((user) => user.email.toLowerCase().includes(term))
-      );
-    } else if (type === "artist") {
-      const profilesToFilter = filteredData || artistProfiles;
-      setFilteredArtists(
-        profilesToFilter.filter(
-          (artist) =>
-            artist.name?.toLowerCase().includes(term) ||
-            managerMap.get(artist.manager_id_id || "")?.toLowerCase().includes(term) // Also search by manager name
-        )
-      );
-    } else if (type === "manager") {
-      setFilteredManagers(
-        managerProfiles.filter((manager) =>
-          manager.name?.toLowerCase().includes(term)
-        )
-      );
-    }
-  }, [searchTerm, users, artistProfiles, managerProfiles, type, filteredData, managerMap]);
-
-  // --- Effects to Update Filtered Lists on Data Change (Keep as they are) ---
-   useEffect(() => {
-    setFilteredUsers(users);
-  }, [users]);
-
-  useEffect(() => {
-    const profilesToFilter = filteredData || artistProfiles;
-    setFilteredArtists(profilesToFilter);
-  }, [artistProfiles, filteredData]);
-
-  useEffect(() => {
-    setFilteredManagers(managerProfiles);
-  }, [managerProfiles]);
-
-  // --- Mutation Handlers (Refined for better state management) ---
+  // --- Mutation Handlers (Error & Success) ---
   const handleMutationError = (
-    error: any,
+    error: unknown,
     action: string,
     itemType: string
   ) => {
-    const backendError = error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'An unknown error occurred';
+    let backendError = 'An unknown error occurred';
+    if (isAxiosErrorLike(error)) {
+        const responseData = error.response?.data;
+        if (responseData) {
+            backendError = responseData.detail || responseData.message || backendError;
+        } else if (error.message) {
+             backendError = error.message;
+        }
+    } else if (error instanceof Error) {
+        backendError = error.message;
+    } else if (typeof error === 'string') {
+        backendError = error;
+    }
     toast.error(`Error ${action} ${itemType}: ${backendError}`);
-    console.error(`Error ${action} ${itemType}:`, error.response?.data || error);
-    // Don't close modal on error
+    const errorDetailsToLog = isAxiosErrorLike(error) ? error.response?.data : error;
+    console.error(`Error ${action} ${itemType}:`, errorDetailsToLog);
   };
 
-  const handleMutationSuccess = (action: string, itemType: string) => {
+  const handleMutationSuccess = useCallback((action: string, itemType: string) => {
     toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} ${action}d successfully!`);
-    // Close modal and reset state on success
     setIsCreating(false);
     setIsUpdating(false);
     setIsModalOpen(false);
     setSelectedItem(null);
     invalidateQueries();
-  };
+  }, [invalidateQueries]);
 
-  // Removed the handleMutationFinally function as success/error handle state now
-
-  const handleCreate = useCallback(
-    async (data: CreateData) => {
-      // No need to set isCreating state here, mutation isLoading handles UI feedback
+  // --- Combined Create/Update Handler for Modals ---
+  const handleFormSubmit = useCallback(
+    async (data: CreateData | UpdateData) => {
       const itemType = type || "item";
-      try {
-        if (type === "user") {
-          await createUserMutation.mutateAsync(data as Partial<User>);
-        } else if (type === "artist") {
-          // ArtistProfileForm should provide the correct structure
-          // Ensure user_id is handled if needed (e.g., passed down or added in form)
-          await createArtistProfileMutation.mutateAsync(data as Partial<ArtistProfile>);
-        } else if (type === "manager") {
-          await createManagerProfileMutation.mutateAsync(data as Partial<ManagerProfile>);
+      if (isCreating) {
+        // --- Create Logic ---
+        try {
+          if (type === "user") {
+            await createUserMutation.mutateAsync(data as Partial<User>);
+          } else if (type === "artist") {
+            await createArtistProfileMutation.mutateAsync(data as Partial<ArtistProfile>);
+          } else if (type === "manager") {
+            await createManagerProfileMutation.mutateAsync(data as Partial<ManagerProfile>);
+          }
+          handleMutationSuccess("create", itemType);
+        } catch (error) {
+          handleMutationError(error, "creating", itemType);
         }
-        handleMutationSuccess("create", itemType); // Handle success state updates
-      } catch (error) {
-        handleMutationError(error, "creating", itemType);
-        // Keep modal open on error
+      } else if (isUpdating) {
+        // --- Update Logic ---
+        if (!selectedItem?.id) {
+          toast.error("No item selected for update.");
+          return;
+        }
+        try {
+          if (type === "user") {
+            await updateUserMutation.mutateAsync({
+              id: selectedItem!.id,
+              data: data as Partial<User>,
+            });
+          } else if (type === "artist") {
+            await updateArtistProfileMutation.mutateAsync({
+              id: selectedItem!.id,
+              data: data as Partial<ArtistProfile>,
+            });
+          } else if (type === "manager") {
+            await updateManagerProfileMutation.mutateAsync({
+              id: selectedItem!.id,
+              data: data as Partial<ManagerProfile>,
+            });
+          }
+          handleMutationSuccess("update", itemType);
+        } catch (error) {
+          handleMutationError(error, "updating", itemType);
+        }
       }
     },
     [
       type,
+      isCreating,
+      isUpdating,
+      selectedItem,
       createUserMutation,
       createArtistProfileMutation,
       createManagerProfileMutation,
-      invalidateQueries, // Keep invalidateQueries for success case
-    ]
-  );
-
-  const handleUpdate = useCallback(
-    async (data: UpdateData["data"]) => {
-      // No need to set isUpdating state here
-      const itemType = type || "item";
-      if (!selectedItem?.id) {
-        toast.error("No item selected for update.");
-        return;
-      }
-      try {
-        if (type === "user") {
-          await updateUserMutation.mutateAsync({
-            id: selectedItem!.id,
-            data: data as Partial<User>,
-          });
-        } else if (type === "artist") {
-          await updateArtistProfileMutation.mutateAsync({
-            id: selectedItem!.id,
-            data: data as Partial<ArtistProfile>,
-          });
-        } else if (type === "manager") {
-          await updateManagerProfileMutation.mutateAsync({
-            id: selectedItem!.id,
-            data: data as Partial<ManagerProfile>,
-          });
-        }
-        handleMutationSuccess("update", itemType); // Handle success state updates
-      } catch (error) {
-        handleMutationError(error, "updating", itemType);
-         // Keep modal open on error
-      }
-    },
-    [
-      type,
       updateUserMutation,
       updateArtistProfileMutation,
       updateManagerProfileMutation,
-      selectedItem,
-      invalidateQueries, // Keep invalidateQueries for success case
+      handleMutationSuccess,
+      // handleMutationError // Not needed as dependency
     ]
   );
 
+
+  // --- Delete Handler ---
   const handleDelete = useCallback(
     async (id: string) => {
       const itemType = type || "item";
@@ -265,11 +277,11 @@ export default function UserManagementTable({
           await deleteManagerProfileMutation.mutateAsync(id);
         }
         toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} deleted successfully!`);
-        invalidateQueries(); // Invalidate after successful deletion
+        invalidateQueries();
       } catch (error) {
         handleMutationError(error, "deleting", itemType);
       } finally {
-        setIsDeleteDialogOpen(false); // Close confirmation modal regardless
+        setIsDeleteDialogOpen(false);
         setSelectedItem(null);
       }
     },
@@ -279,18 +291,26 @@ export default function UserManagementTable({
       deleteArtistProfileMutation,
       deleteManagerProfileMutation,
       invalidateQueries,
+      // handleMutationError // Not needed as dependency
     ]
   );
 
-  // --- Modal Control Handlers (Keep as they are) ---
-  const handleOpenModal = useCallback(
-    (
-      item: User | ArtistProfile | ManagerProfile | null = null,
-      isUpdate = false
-    ) => {
+  // --- Modal Control Handlers ---
+  const handleOpenModalForEdit = useCallback(
+    (item: DataItem) => {
       setSelectedItem(item);
-      setIsCreating(!isUpdate);
-      setIsUpdating(isUpdate);
+      setIsCreating(false);
+      setIsUpdating(true);
+      setIsModalOpen(true);
+    },
+    []
+  );
+
+    const handleOpenModalForCreate = useCallback(
+    () => {
+      setSelectedItem(null);
+      setIsCreating(true);
+      setIsUpdating(false);
       setIsModalOpen(true);
     },
     []
@@ -303,8 +323,8 @@ export default function UserManagementTable({
     setIsUpdating(false);
   }, []);
 
-  const handleDeleteItem = useCallback(
-    (item: User | ArtistProfile | ManagerProfile) => {
+  const handleDeleteRequest = useCallback(
+    (item: DataItem) => {
       setSelectedItem(item);
       setIsDeleteDialogOpen(true);
     },
@@ -322,145 +342,14 @@ export default function UserManagementTable({
     setSelectedItem(null);
   }, []);
 
-  // --- Table Rendering Logic (Keep renderTable, renderUserTable, etc. as they are) ---
-  const renderTable = (
-    data: any[],
-    columns: { key: string; label: string }[],
-    managerMapArg: Map<string, string>
-  ) => {
-    // Determine button visibility based on role and type
-    const showCreateButton = currentUserRole === "super_admin" ||
-                             (currentUserRole === "artist_manager" && type === "manager"); // Managers can create managers
-
-    return (
-      <>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">
-            {type === "user"
-              ? "User List"
-              : type === "artist"
-              ? "Artist Profiles"
-              : "Manager Profiles"}
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder={`Search by ${
-                  type === "user" ? "email" : "name"
-                }...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64 pl-8"
-              />
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            </div>
-            {showCreateButton && (
-              <Button onClick={() => handleOpenModal(null)}>
-                Create{" "}
-                {type === "user"
-                  ? "User"
-                  : type === "artist" // This case won't be hit if button isn't shown
-                  ? "Artist Profile"
-                  : "Manager Profile"}
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={col.key}>{col.label}</TableHead>
-                ))}
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length + 1}
-                    className="h-24 text-center"
-                  >
-                    No {type}s found
-                    {searchTerm && " matching your search"}.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.map((item) => (
-                  <TableRow key={item.id}>
-                    {columns.map((col) => (
-                      <TableCell key={`${item.id}-${col.key}`}>
-                        {col.key === "manager_id_id" && type === "artist" ? (
-                          managerMapArg.get(item.manager_id_id) || "N/A"
-                        ) : col.key === "is_active" && type === "user" ? ( // Only show icon for user type
-                          item.is_active ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-red-500" />
-                          )
-                        ) : col.key === "date_of_birth" &&
-                          item.date_of_birth ? (
-                          new Date(item.date_of_birth).toLocaleDateString()
-                        ) : (
-                          item[col.key] ?? "N/A"
-                        )}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {/* Edit button: Admins edit all. Managers edit their artists. */}
-                        {(currentUserRole === "super_admin" || (currentUserRole === "artist_manager" && type === "artist")) && (
-                           <Button
-                             variant="ghost"
-                             size="icon"
-                             onClick={() => handleOpenModal(item, true)}
-                             title={`Edit ${type}`}
-                             // Disable if any update mutation is loading
-                             disabled={updateUserMutation.isLoading || updateArtistProfileMutation.isLoading || updateManagerProfileMutation.isLoading}
-                           >
-                             <Pencil className="h-4 w-4" />
-                           </Button>
-                        )}
-                        {/* Delete button: Only Admins can delete */}
-                        {currentUserRole === "super_admin" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteItem(item)}
-                            title={`Delete ${type}`}
-                            // Disable if any delete mutation is loading
-                            disabled={deleteUserMutation.isLoading || deleteArtistProfileMutation.isLoading || deleteManagerProfileMutation.isLoading}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </>
-    );
-  };
-
-  const renderUserTable = () => {
-    const columns = [
-      // { key: "id", label: "ID" }, // Often not needed in UI
+  // --- Column Definitions (Keep here or move to constants) ---
+  const userColumns: ColumnDefinition<User>[] = [
       { key: "email", label: "Email" },
       { key: "role", label: "Role" },
       { key: "is_active", label: "Status" },
-    ];
-    return renderTable(filteredUsers, columns, managerMap);
-  };
+  ];
 
-  const renderArtistTable = () => {
-    const columns = [
+  const artistColumns: ColumnDefinition<ArtistProfile>[] = [
       { key: "name", label: "Name" },
       { key: "gender", label: "Gender" },
       { key: "address", label: "Address" },
@@ -468,13 +357,9 @@ export default function UserManagementTable({
       { key: "first_release_year", label: "First Release Year" },
       { key: "manager_id_id", label: "Manager Name" },
       { key: "no_of_albums_released", label: "Albums Released" },
-    ];
-    // Use filteredArtists which respects the filteredData prop if provided
-    return renderTable(filteredArtists, columns, managerMap);
-  };
+  ];
 
-  const renderManagerTable = () => {
-    const columns = [
+  const managerColumns: ColumnDefinition<ManagerProfile>[] = [
       { key: "name", label: "Name" },
       { key: "gender", label: "Gender" },
       { key: "address", label: "Address" },
@@ -482,98 +367,88 @@ export default function UserManagementTable({
       { key: "company_name", label: "Company Name" },
       { key: "company_email", label: "Company Email" },
       { key: "company_phone", label: "Company Phone" },
-    ];
-    return renderTable(filteredManagers, columns, managerMap);
-  };
+  ];
 
+  // --- Determine Current Config based on Type ---
+  const { columns, title, createLabel } = useMemo(() => {
+    switch (type) {
+      case "user":
+        return { columns: userColumns, title: "User List", createLabel: "Create User" };
+      case "artist":
+        return { columns: artistColumns, title: "Artist Profiles", createLabel: "Create Artist Profile" };
+      case "manager":
+        return { columns: managerColumns, title: "Manager Profiles", createLabel: "Create Manager Profile" };
+      default:
+        return { columns: [], title: "Management", createLabel: "Create Item" };
+    }
+  }, [type]);
+
+  const showCreateButton = currentUserRole === "super_admin" ||
+                           (currentUserRole === "artist_manager" && type === "manager");
 
   // --- Loading State ---
-  if (isLoading) {
-    return <div className="p-4 text-center">Loading data...</div>;
+  if (isLoadingQueries) {
+    return (
+        <div className="flex justify-center items-center p-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading data...</span>
+        </div>
+    );
   }
 
   // --- Main Component Return ---
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-      {/* Render tables based on role and type */}
-      {currentUserRole === "super_admin" && (
+      {/* Render based on role and type */}
+      {currentUserRole === "artist" ? (
+        <MusicList />
+      ) : type ? (
         <>
-          {type === "user" && renderUserTable()}
-          {type === "artist" && renderArtistTable()}
-          {type === "manager" && renderManagerTable()}
+          <DataTableHeader
+            title={title}
+            searchPlaceholder={`Search by ${type === "user" ? "email" : "name"}...`}
+            searchTerm={searchTerm}
+            onSearchChange={(e) => setSearchTerm(e.target.value)}
+            createButtonLabel={createLabel}
+            onCreate={handleOpenModalForCreate}
+            showCreateButton={showCreateButton}
+            isActionLoading={isMutating}
+          />
+
+          <DataTable
+            data={dataToDisplay as DataItem[]}
+            columns={columns as ColumnDefinition<DataItem>[]}
+            onEdit={handleOpenModalForEdit}
+            onDelete={handleDeleteRequest}
+            isLoadingEdit={updateUserMutation.isPending || updateArtistProfileMutation.isPending || updateManagerProfileMutation.isPending}
+            isLoadingDelete={deleteUserMutation.isPending || deleteArtistProfileMutation.isPending || deleteManagerProfileMutation.isPending}
+            currentUserRole={currentUserRole}
+            itemType={type}
+            managerMap={managerMap}
+            searchTerm={searchTerm}
+          />
         </>
-      )}
-      {currentUserRole === "artist_manager" && type === "artist" && renderArtistTable()}
-      {currentUserRole === "artist" && <MusicList />}
-
-      {/* --- Modal Rendering Logic --- */}
-      {isModalOpen && (
-        <>
-          {/* User Form Modal */}
-          {type === "user" && (
-            <UserModal
-              isOpen={isModalOpen}
-              onClose={handleCloseModal}
-              onSubmit={isCreating ? handleCreate : (data) => handleUpdate(data)}
-              initialData={selectedItem as Partial<User> | undefined}
-              isCreating={isCreating}
-              isUpdating={isUpdating}
-              // Pass the combined loading state from create/update mutations
-              isLoading={createUserMutation.isLoading || updateUserMutation.isLoading}
-            />
-          )}
-
-          {/* Artist Profile Form Modal */}
-          {type === "artist" && (
-             <CustomModal
-               isOpen={isModalOpen}
-               onClose={handleCloseModal}
-               title={isCreating ? "Create Artist Profile" : "Update Artist Profile"}
-               // Optional: Add class for width/styling if needed
-               // className="sm:max-w-lg"
-             >
-               <ArtistProfileForm
-                 onSubmit={isCreating ? handleCreate : (data) => handleUpdate(data)}
-                 initialData={selectedItem as ArtistProfile | null | undefined} // Cast appropriately
-                 onCancel={handleCloseModal}
-                 // Pass currentUserId if needed for creation logic within ArtistProfileForm
-                 // currentUserId={usersData?.currentUserId} // Example if needed
-                 // Pass mutation loading states if ArtistProfileForm needs them for disabling submit
-                 // isSubmitting={createArtistProfileMutation.isLoading || updateArtistProfileMutation.isLoading}
-               />
-             </CustomModal>
-          )}
-
-          {/* Manager Profile Form Modal */}
-          {type === "manager" && (
-            <CustomModal
-              isOpen={isModalOpen}
-              onClose={handleCloseModal}
-              title={isCreating ? "Create Manager Profile" : "Update Manager Profile"}
-              // Optional: Add class for width/styling if needed
-              // className="sm:max-w-lg"
-            >
-              <ManagerProfileForm
-                onSubmit={isCreating ? handleCreate : (data) => handleUpdate(data)}
-                initialData={selectedItem as ManagerProfile | undefined}
-                onCancel={handleCloseModal}
-                // Pass mutation loading states if ManagerProfileForm needs them
-                // isSubmitting={createManagerProfileMutation.isLoading || updateManagerProfileMutation.isLoading}
-              />
-            </CustomModal>
-          )}
-        </>
+      ) : (
+        <div>Select a management category.</div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <CustomModal
-        isOpen={isDeleteDialogOpen}
-        onClose={cancelDelete}
-        onConfirm={confirmDelete}
-        title="Are you absolutely sure?"
-        description={`This action cannot be undone. This will permanently delete the ${type || 'item'}.`}
-        // Pass loading state for the confirm button
-        isConfirmLoading={deleteUserMutation.isLoading || deleteArtistProfileMutation.isLoading || deleteManagerProfileMutation.isLoading}
+      {/* --- Render the Centralized Modals Component --- */}
+      <ManagementModals
+        isModalOpen={isModalOpen}
+        isDeleteDialogOpen={isDeleteDialogOpen}
+        type={type}
+        isCreating={isCreating}
+        isUpdating={isUpdating}
+        selectedItem={selectedItem}
+        isLoadingCreate={createUserMutation.isPending || createArtistProfileMutation.isPending || createManagerProfileMutation.isPending}
+        isLoadingUpdate={updateUserMutation.isPending || updateArtistProfileMutation.isPending || updateManagerProfileMutation.isPending}
+        isLoadingDelete={deleteUserMutation.isPending || deleteArtistProfileMutation.isPending || deleteManagerProfileMutation.isPending}
+        onCloseModal={handleCloseModal}
+        onCloseDeleteModal={cancelDelete}
+        onConfirmDelete={confirmDelete}
+        onSubmit={handleFormSubmit} // Pass the combined submit handler
+        // Pass user ID from selected item if it's an ArtistProfile, otherwise null/undefined
+        currentUserId={type === 'artist' ? (selectedItem as ArtistProfile)?.user_id : undefined}
       />
     </div>
   );

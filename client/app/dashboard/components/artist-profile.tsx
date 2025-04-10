@@ -53,9 +53,13 @@ const defaultValues: Partial<ArtistProfileFormValues> = {
 const formatDateForInput = (date: string | Date | null | undefined): string => {
   if (!date) return "";
   try {
-    return new Date(date).toISOString().split("T")[0];
-  } catch (e) {
-    return ""; // Return empty if date is invalid
+    // Ensure date is valid before formatting
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch { // FIX: Removed unused '_e' variable binding
+    console.error("Error formatting date for input:", date); // Optional: log the problematic date
+    return ""; // Return empty if date is invalid or formatting fails
   }
 };
 
@@ -117,8 +121,19 @@ export default function ArtistProfileForm({
       setIsDeleting(false);
       onDeleteSuccess?.(); // Call parent callback
     },
-    onError: (error: any) => {
-      toast.error(`Error deleting artist profile: ${error.message}`);
+    onError: (error: unknown) => { // Changed 'any' to 'unknown'
+      let message = "Error deleting artist profile";
+      // Add type checking
+      if (error instanceof Error) {
+        message = `Error deleting artist profile: ${error.message}`;
+      } else if (typeof error === 'string') {
+        message = `Error deleting artist profile: ${error}`;
+      }
+      // You might want to check for AxiosError structure if applicable
+      // else if (axios.isAxiosError(error) && error.response?.data?.detail) {
+      //   message = `Error deleting artist profile: ${error.response.data.detail}`;
+      // }
+      toast.error(message);
       setIsDeleting(false);
     },
   });
@@ -164,7 +179,8 @@ export default function ArtistProfileForm({
       gender: values.gender || null,
       address: values.address || null,
       date_of_birth: values.date_of_birth || null,
-      manager_id_id: values.manager_id_id || null,
+      // Convert "none" back to null for the backend
+      manager_id_id: values.manager_id_id === "none" ? null : values.manager_id_id || null,
       // Ensure numeric fields are numbers or null
       first_release_year: values.first_release_year === null ? null : Number(values.first_release_year),
       no_of_albums_released: values.no_of_albums_released === null ? 0 : Number(values.no_of_albums_released),
@@ -247,7 +263,8 @@ export default function ArtistProfileForm({
               <FormLabel>Gender</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                value={field.value || ""} // Handle null/undefined for Select value
+                // Use field.value which could be null, map null to "" for Select value prop
+                value={field.value ?? ""}
                 disabled={isLoading || isDeleting}
               >
                 <FormControl>
@@ -351,7 +368,10 @@ export default function ArtistProfileForm({
               ) : ( // In create mode, or update mode if no manager assigned, show Select
                 <Select
                   onValueChange={field.onChange}
-                  value={field.value || ""}
+                  // Map null field value to "" for Select value prop to show placeholder
+                  // Map "none" field value to "none" for Select value prop
+                  // Map actual id field value to id for Select value prop
+                  value={field.value === null ? "" : field.value}
                   disabled={isLoading || isDeleting || isLoadingManagers}
                 >
                   <FormControl>
@@ -360,7 +380,8 @@ export default function ArtistProfileForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">No Manager</SelectItem> {/* Explicit option for no manager */}
+                    {/* Use "none" as the value for the explicit "No Manager" option */}
+                    <SelectItem value="none">No Manager</SelectItem>
                     {allManagers.map((manager) => (
                       <SelectItem key={manager.id} value={manager.id}>
                         {manager.name}

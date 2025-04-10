@@ -1,216 +1,184 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/music-list.tsx
-"use client"
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import {
   useCreateMusicMutation,
   useDeleteMusicMutation,
   useMusicListQuery,
   useUpdateMusicMutation,
 } from "@/shared/queries/music";
-import { Music } from "@/types/auth";
-import { useState, useEffect } from "react";
 import { useMyArtistProfileQuery } from "@/shared/queries/profiles";
+import { Music } from "@/types/auth";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
-import { CustomModal } from "@/components/ui/custom-modal";
-import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { MusicTable } from "./music-table"; // Import the new table component
+import { MusicCreateUpdateModal } from "./music-create-update"; // Import the new modal component
+import { MusicDeleteConfirmationModal } from "./music-delete"; // Import the new delete modal
 
-// Separate component for the Music Form
-interface MusicFormProps {
-  formData: Music;
-  handleChange: (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => void;
-  isUpdating: boolean;
-  isCreating: boolean;
-  handleUpdateMusic: () => void;
-  handleCreateMusic: () => void;
-  handleCloseModal: () => void;
-  isUpdatingMutationLoading: boolean; // Add this prop
-  isCreatingMutationLoading: boolean; // Add this prop
-}
-
-const MusicForm = ({
-  formData,
-  handleChange,
-  isUpdating,
-  isCreating,
-  handleUpdateMusic,
-  handleCreateMusic,
-  handleCloseModal,
-  isUpdatingMutationLoading, // Use this prop
-  isCreatingMutationLoading, // Use this prop
-}: MusicFormProps) => {
-  return (
-    <div className="mt-2 px-7 py-3">
-      <label htmlFor="title">Title</label>
-      <Input
-        type="text"
-        id="title"
-        name="title"
-        value={formData.title}
-        onChange={handleChange}
-        className="border border-gray-300 rounded-md p-2 w-full"
-      />
-      <label htmlFor="album_name">Album Name</label>
-      <Input
-        type="text"
-        id="album_name"
-        name="album_name"
-        value={formData.album_name}
-        onChange={handleChange}
-        className="border border-gray-300 rounded-md p-2 w-full"
-      />
-      <label htmlFor="genre">Genre</label>
-      <Input
-        type="text"
-        id="genre"
-        name="genre"
-        value={formData.genre}
-        onChange={handleChange}
-        className="border border-gray-300 rounded-md p-2 w-full"
-      />
-      <label htmlFor="release_date">Release Date</label>
-      <Input
-        type="datetime-local"
-        id="release_date"
-        name="release_date"
-        value={formData.release_date || ""}
-        onChange={handleChange}
-        className="border border-gray-300 rounded-md p-2 w-full"
-      />
-      <div className="items-center px-4 py-3">
-        <Button
-          onClick={handleCloseModal}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={isUpdating ? handleUpdateMusic : handleCreateMusic}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md ml-2"
-          disabled={isCreatingMutationLoading || isUpdatingMutationLoading} // Use the new props here
-        >
-          {isUpdating
-            ? isUpdatingMutationLoading
-              ? "Updating..."
-              : "Update"
-            : isCreating
-            ? "Create"
-            : "Creating.."}
-        </Button>
-      </div>
-    </div>
-  );
+// Helper function to extract error message (keep or move to utils)
+const getErrorMessage = (error: unknown, defaultMessage: string): string => {
+    if (typeof error === 'object' && error !== null) {
+        const response = (error as any).response;
+        if (response && typeof response.data === 'object' && response.data !== null) {
+            return response.data.detail || response.data.message || defaultMessage;
+        } else if ((error as Error).message) {
+            return (error as Error).message;
+        }
+    } else if (typeof error === 'string') {
+        return error;
+    }
+    return defaultMessage;
 };
 
+// Helper function to get details for logging (keep or move to utils)
+const getErrorDetailsForLog = (error: unknown): unknown => {
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+        return (error as any).response?.data ?? error;
+    }
+    return error;
+}
+
 const MusicList = () => {
-  const { data: musicList, isLoading } = useMusicListQuery();
-  const {
-    mutate: createMusic,
-    isLoading: isCreatingMutationLoading, // Rename this variable
-  } = useCreateMusicMutation({
+  // --- Queries ---
+  const { data: musicList, isLoading: isMusicListLoading, refetch: refetchMusic } = useMusicListQuery();
+  const { data: profile, isLoading: isProfileLoading } = useMyArtistProfileQuery(true);
+
+  // --- Mutations ---
+  const { mutate: createMusic, isPending: isCreating } = useCreateMusicMutation({
     onSuccess: () => {
       toast.success("Music created successfully!");
       setIsModalOpen(false);
       resetFormData();
+      refetchMusic(); // Refetch list after creation
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to create music");
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error, 'Failed to create music');
+      toast.error(`Error: ${message}`);
+      console.error("Create Music Error:", getErrorDetailsForLog(error));
     },
   });
-  const {
-    mutate: updateMusic,
-    isLoading: isUpdatingMutationLoading, // Rename this variable
-  } = useUpdateMusicMutation({
+
+  const { mutate: updateMusic, isPending: isUpdatingMutation } = useUpdateMusicMutation({
     onSuccess: () => {
       toast.success("Music updated successfully!");
       setIsModalOpen(false);
       resetFormData();
+      refetchMusic(); // Refetch list after update
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update music");
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error, 'Failed to update music');
+      toast.error(`Error: ${message}`);
+      console.error("Update Music Error:", getErrorDetailsForLog(error));
     },
   });
-  const {
-    mutate: deleteMusic,
-    isLoading: isDeleting,
-  } = useDeleteMusicMutation({
+
+  const { mutate: deleteMusic, isPending: isDeleting } = useDeleteMusicMutation({
     onSuccess: () => {
       toast.success("Music deleted successfully!");
+      refetchMusic(); // Refetch list after deletion
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to delete music");
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error, 'Failed to delete music');
+      toast.error(`Error: ${message}`);
+      console.error("Delete Music Error:", getErrorDetailsForLog(error));
     },
   });
+
+  // --- State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [musicToDelete, setMusicToDelete] = useState<Music | null>(null);
-  const [isCreatingMusic, setIsCreatingMusic] = useState(false);
-  const [isUpdatingMusic, setIsUpdatingMusic] = useState(false);
-  const [formData, setFormData] = useState<Music>({
+  const [isUpdatingMode, setIsUpdatingMode] = useState(false); // Explicit state for update mode
+  const [formData, setFormData] = useState<Partial<Music>>({
     title: "",
     album_name: "",
     genre: "",
     release_date: null,
-    artist_name: "artist_name",
     created_by_id: "",
+    artist_name: "",
   });
-  const { data: profile, isLoading: isProfileLoading } =
-    useMyArtistProfileQuery(true);
 
-  // Reset form data function
-  const resetFormData = () => {
+  // --- Helper Functions ---
+  const resetFormData = useCallback(() => {
     setFormData({
       title: "",
       album_name: "",
       genre: "",
       release_date: null,
-      artist_name: "artist_name",
-      created_by_id: profile?.id || "", // Set to artist profile id if available
+      created_by_id: profile?.id || "",
+      artist_name: profile?.name || "",
     });
-  };
+  }, [profile]); // Depend on profile
 
+  // --- Effects ---
   useEffect(() => {
-    // Update the form data's created_by_id when the profile data changes
-    if (profile) {
-      setFormData((prevFormData) => ({
-        ...prevFormData,
-        created_by_id: profile.id || "",
-      }));
+    if (profile && !isUpdatingMode) {
+      resetFormData();
     }
-  }, [profile]);
+  }, [profile, isUpdatingMode, resetFormData]);
+
+  // --- Event Handlers ---
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isUpdatingMode) {
+      handleUpdateMusic();
+    } else {
+      handleCreateMusic();
+    }
+  };
 
   const handleCreateMusic = () => {
-    if (profile) {
-      createMusic({ ...formData, created_by_id: profile.id }); // Use profile.id here
+    if (profile?.id && profile?.name) {
+      const { title, album_name, genre, release_date } = formData;
+      if (!title || !album_name || !genre) {
+        toast.error("Please fill in Title, Album Name, and select a Genre.");
+        return;
+      }
+      const dataToCreate: Music = {
+        title,
+        album_name,
+        genre,
+        release_date: release_date ? new Date(release_date).toISOString() : null,
+        created_by_id: profile.id,
+        artist_name: profile.name,
+        created: new Date(),
+      };
+      createMusic(dataToCreate);
+    } else {
+      toast.error("Artist profile not loaded. Cannot create music.");
     }
   };
+
   const handleUpdateMusic = () => {
     if (selectedMusic?.id) {
-      const dataWithoutCreatedById = { ...formData }; // Keep the formData as is without destructuring
-      delete dataWithoutCreatedById.created_by_id; // Explicitly remove created_by_id if necessary
-      updateMusic({ id: selectedMusic.id, data: dataWithoutCreatedById });
+      const { title, album_name, genre, release_date } = formData;
+      if (!title || !album_name || !genre) {
+        toast.error("Please fill in Title, Album Name, and select a Genre.");
+        return;
+      }
+      const dataToUpdate: Partial<Music> = {
+        title,
+        album_name,
+        genre,
+        release_date: release_date ? new Date(release_date).toISOString() : null,
+      };
+      updateMusic({ id: selectedMusic.id, data: dataToUpdate });
+    } else {
+      toast.error("Cannot update music. Missing music ID.");
     }
   };
-  const handleDeleteMusic = (music: Music) => {
+
+  const handleDeleteRequest = (music: Music) => {
     setMusicToDelete(music);
     setIsDeleteDialogOpen(true);
   };
+
   const confirmDeleteMusic = () => {
-    if (musicToDelete) {
-      deleteMusic(musicToDelete.id || "");
+    if (musicToDelete?.id) {
+      deleteMusic(musicToDelete.id);
       setIsDeleteDialogOpen(false);
       setMusicToDelete(null);
     }
@@ -220,128 +188,97 @@ const MusicList = () => {
     setIsDeleteDialogOpen(false);
     setMusicToDelete(null);
   };
-  const handleOpenModal = (music: Music | null = null) => {
+
+  const handleOpenModalForEdit = (music: Music) => {
     setSelectedMusic(music);
-    if (music) {
-      setIsUpdatingMusic(true);
-      setIsCreatingMusic(false);
-      setFormData({
-        title: music.title,
-        album_name: music.album_name,
-        genre: music.genre,
-        release_date: music.release_date,
-        artist_name: music.artist_name,
-        created_by_id: music.created_by_id, // Keep the existing created_by_id for updates
-      });
-    } else {
-      setIsCreatingMusic(true);
-      setIsUpdatingMusic(false);
-      resetFormData();
-    }
+    setIsUpdatingMode(true);
+    setFormData({
+      title: music.title || "",
+      album_name: music.album_name || "",
+      genre: music.genre || "",
+      release_date: music.release_date || null,
+      created_by_id: music.created_by_id,
+      artist_name: music.artist_name,
+    });
     setIsModalOpen(true);
   };
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    resetFormData();
-  };
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
+
+  const handleOpenModalForCreate = () => {
+    setSelectedMusic(null);
+    setIsUpdatingMode(false);
+    resetFormData(); // Ensure form is reset for creation
+    setIsModalOpen(true);
   };
 
-  if (isLoading || isProfileLoading) {
-    return <div>Loading...</div>;
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedMusic(null);
+    setIsUpdatingMode(false);
+    resetFormData();
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // --- Derived State ---
+  const isLoading = isMusicListLoading || isProfileLoading;
+  const myMusicList = musicList?.filter(music => music.created_by_id === profile?.id) || [];
+
+  // --- Render ---
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading music data...</span>
+      </div>
+    );
   }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Music List</h2>
-        <Button onClick={() => handleOpenModal()}>Create Music</Button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">My Music</h2>
+        <Button onClick={handleOpenModalForCreate} disabled={!profile?.id || isCreating || isUpdatingMutation}>
+          Create Music
+        </Button>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>S.N.</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Album Name</TableHead>
-            <TableHead>Genre</TableHead>
-            <TableHead>Release Date</TableHead>
-            <TableHead>Created By</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {musicList?.map((music, index) => (
-            <TableRow key={music.id}>
-              <TableCell>{index + 1}</TableCell>
-              <TableCell>{music.title}</TableCell>
-              <TableCell>{music.album_name}</TableCell>
-              <TableCell>{music.genre}</TableCell>
-              <TableCell>{music.release_date}</TableCell>
-              <TableCell>{music.artist_name}</TableCell>
-              <TableCell className="text-right">
-                {/* Container for buttons */}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenModal(music)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteMusic(music)}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {isModalOpen && (
-        <div
-          key={selectedMusic?.id || "new"}
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"
-        >
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3 text-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                {isUpdatingMusic ? "Update Music" : "Create Music"}
-              </h3>
-              <MusicForm
-                formData={formData}
-                handleChange={handleChange}
-                isUpdating={isUpdatingMusic}
-                isCreating={isCreatingMusic}
-                handleUpdateMusic={handleUpdateMusic}
-                handleCreateMusic={handleCreateMusic}
-                handleCloseModal={handleCloseModal}
-                isUpdatingMutationLoading={isUpdatingMutationLoading} // Pass the new prop
-                isCreatingMutationLoading={isCreatingMutationLoading} // Pass the new prop
-              />
-            </div>
-          </div>
-        </div>
-      )}
-      <CustomModal
+
+      {/* Render the Music Table */}
+      <MusicTable
+        musicList={myMusicList}
+        onEdit={handleOpenModalForEdit}
+        onDelete={handleDeleteRequest}
+        isLoadingEdit={isUpdatingMutation} // Pass relevant loading states
+        isLoadingDelete={isDeleting}
+      />
+
+      {/* Render the Create/Update Modal */}
+      <MusicCreateUpdateModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        formData={formData}
+        handleChange={handleChange}
+        handleSelectChange={handleSelectChange}
+        handleSubmit={handleFormSubmit}
+        isSubmitting={isCreating || isUpdatingMutation} // Combined loading state
+        isUpdating={isUpdatingMode}
+      />
+
+      {/* Render the Delete Confirmation Modal */}
+      <MusicDeleteConfirmationModal
         isOpen={isDeleteDialogOpen}
         onClose={cancelDeleteMusic}
         onConfirm={confirmDeleteMusic}
-        title="Are you absolutely sure?"
-        description="This action cannot be undone. This will permanently delete the music."
+        isLoading={isDeleting}
+        musicToDelete={musicToDelete}
       />
     </div>
   );

@@ -10,7 +10,6 @@ import PermissionDenied from "./permission";
 import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { Toaster } from "sonner";
-import { Loader2 } from "lucide-react"; // Import a loading icon
 
 interface DashboardLayoutProps {
   children: ReactNode;
