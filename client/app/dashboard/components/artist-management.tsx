@@ -1,5 +1,5 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-management-client.tsx
-"use client"; // <-- This component needs to be a client component
+"use client";
 
 import { useMemo } from "react";
 import { useUsersQuery } from "@/shared/queries/users";
@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/auth";
 import { useMyManagerProfileQuery } from "@/shared/queries/profiles";
 import { useArtistProfileListQuery } from "@/shared/queries/artist-profile";
 import { Loader2 } from "lucide-react"; // Import Loader2 for loading state
-import UserManagementTable from "../components/management-table";
+import UserManagementTable from "./management-table";
 
 export default function ArtistManagementClient() {
   // All the hooks and client-side logic are now here

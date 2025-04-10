@@ -1,280 +1,126 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/manager-profile.tsx
+"use client";
+
 import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ManagerProfile } from "@/types/auth";
+import {
+  managerProfileSchema,
+  ManagerProfileFormValues,
+  managerProfileDefaultValues,
+  formatDateForInput,
+} from "@/schemas/auth"; // Adjust path
 import { useDeleteManagerProfileMutation } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
-import { isValid, parseISO } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { Form } from "@/components/ui/form";
+import { ManagerFormFields } from "./manager-form"; // Import new components
+import { ManagerFormFooter } from "./manager-footer";
+
 interface ManagerProfileFormProps {
-  onSubmit: (data: Partial<ManagerProfile>) => void;
-  initialData?: ManagerProfile;
+  onSubmit: (data: Partial<ManagerProfile>) => Promise<void> | void;
+  initialData?: ManagerProfile | null;
   onCancel?: () => void;
+  isLoading?: boolean; // Loading state from parent create/update mutation
 }
 
 export default function ManagerProfileForm({
   onSubmit,
   initialData,
   onCancel,
+  isLoading = false,
 }: ManagerProfileFormProps) {
-  const [formData, setFormData] = useState<Partial<ManagerProfile>>({
-    name: "",
-    company_name: "",
-    company_email: "",
-    company_phone: "",
-    gender: "",
-    address: "",
-    date_of_birth: null,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [dateError, setDateError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const isUpdateMode = !!initialData?.id;
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const form = useForm<ManagerProfileFormValues>({
+    resolver: zodResolver(managerProfileSchema),
+    defaultValues: initialData
+      ? {
+          ...managerProfileDefaultValues,
+          ...initialData,
+          date_of_birth: formatDateForInput(initialData.date_of_birth),
+          gender: initialData.gender || null,
+          address: initialData.address || null,
+        }
+      : managerProfileDefaultValues,
+  });
+
+  // Reset form if initialData changes
+  useEffect(() => {
+    const resetValues = initialData
+      ? {
+          ...managerProfileDefaultValues,
+          ...initialData,
+          date_of_birth: formatDateForInput(initialData.date_of_birth),
+          gender: initialData.gender || null,
+          address: initialData.address || null,
+        }
+      : managerProfileDefaultValues;
+    form.reset(resetValues);
+  }, [initialData, form]);
+
+  // Delete Mutation
   const { mutate: deleteManagerProfile } = useDeleteManagerProfileMutation({
     onSuccess: () => {
       toast.success("Manager profile deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["managers"] });
+      setIsDeleting(false);
       onCancel?.();
     },
-    onError: (error: unknown) => { // <-- FIX: Changed 'any' to 'unknown'
-      let message = "Error deleting manager profile";
-      // Add type checking
-      if (error instanceof Error) {
-        message = error.message || message; // Use error message if available
-      } else if (typeof error === 'string') {
-        message = error;
-      }
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Error deleting profile";
       toast.error(message);
+      setIsDeleting(false);
     },
   });
 
-  useEffect(() => {
-    if (initialData) {
-      // Format date for input when setting initial data
-      setFormData({
-          ...initialData,
-          date_of_birth: initialData.date_of_birth ? new Date(initialData.date_of_birth).toISOString().split('T')[0] : null
-      });
+  // Form Submission Handler
+  const handleFormSubmit = async (values: ManagerProfileFormValues) => {
+    if (isLoading || isDeleting) return;
+
+    const dataToSubmit: Partial<ManagerProfile> = {
+      ...values,
+      gender: values.gender || null,
+      address: values.address || null,
+      date_of_birth: values.date_of_birth ? new Date(values.date_of_birth).toISOString() : null,
+    };
+
+    if (isUpdateMode && initialData?.id) {
+      dataToSubmit.id = initialData.id;
     } else {
-      setFormData({
-        name: "",
-        company_name: "",
-        company_email: "",
-        company_phone: "",
-        gender: "",
-        address: "",
-        date_of_birth: null,
-      });
+      delete dataToSubmit.id;
     }
-  }, [initialData]);
+    delete dataToSubmit.user_id; // Never submit user_id from here
 
-  const handleChange = useCallback(
-    (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >
-    ) => {
-      const { name, value } = e.target;
-      setFormData((prevFormData) => ({
-        ...prevFormData,
-        [name]: value,
-      }));
-      if (name === "date_of_birth") {
-        setDateError(null);
-        if (value) {
-          // Basic validation, more robust validation might be needed
-          const parsedDate = parseISO(value);
-          if (!isValid(parsedDate)) {
-            setDateError("Invalid date format");
-          }
-        }
-      }
-    },
-    []
-  );
+    await onSubmit(dataToSubmit);
+  };
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (dateError) {
-          toast.error("Please fix the errors before submitting.");
-          return;
-      }
-      setIsSubmitting(true);
-
-      // Prepare data, ensure date is correctly formatted or null
-      const dataToSubmit: Partial<ManagerProfile> = {
-        ...formData,
-        // Format date for backend, ensure it's null if empty/invalid
-        date_of_birth: formData.date_of_birth && isValid(parseISO(formData.date_of_birth.toString()))
-            ? new Date(formData.date_of_birth).toISOString()
-            : null,
-      };
-
-      // Remove user_id if it exists, as it shouldn't be sent on update/create via this form typically
-      delete dataToSubmit.user_id;
-
-      console.log("Submitting Manager Profile:", dataToSubmit);
-      onSubmit(dataToSubmit);
-      // Consider resetting submitting state in a .finally or after onSubmit promise resolves if it's async
-      setIsSubmitting(false);
-    },
-    [formData, onSubmit, dateError]
-  );
-
+  // Delete Handler
   const handleDelete = useCallback(() => {
-    if (initialData?.id) {
+    if (initialData?.id && !isDeleting && !isLoading) {
       setIsDeleting(true);
       deleteManagerProfile(initialData.id);
     }
-  }, [initialData?.id, deleteManagerProfile]);
+  }, [initialData?.id, deleteManagerProfile, isDeleting, isLoading]);
 
-  // Helper to format date string (YYYY-MM-DD) from various types
-  const getFormattedDateValue = (date: string | Date | null | undefined): string => {
-      if (!date) return "";
-      try {
-          return new Date(date).toISOString().split('T')[0];
-      } catch {
-          return "";
-      }
-  }
+  const isSubmittingCombined = form.formState.isSubmitting || isLoading;
+  const isDisabled = isSubmittingCombined || isDeleting;
 
   return (
-    // Consider using shadcn Form components for consistency if available in your project
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
-      {/* Use Label and Input components for consistency */}
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value={formData.name || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          required
-          disabled={isSubmitting || isDeleting}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+        <ManagerFormFields control={form.control} disabled={isDisabled} />
+        <ManagerFormFooter
+          isUpdateMode={isUpdateMode}
+          isSubmitting={isSubmittingCombined}
+          isDeleting={isDeleting}
+          onCancel={onCancel}
+          onDelete={handleDelete}
         />
-      </div>
-      <div>
-        <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-        <input
-          type="text"
-          id="company_name"
-          name="company_name"
-          value={formData.company_name || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          required
-          disabled={isSubmitting || isDeleting}
-        />
-      </div>
-      <div>
-        <label htmlFor="company_email" className="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
-        <input
-          type="email"
-          id="company_email"
-          name="company_email"
-          value={formData.company_email || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          required
-          disabled={isSubmitting || isDeleting}
-        />
-      </div>
-      <div>
-        <label htmlFor="company_phone" className="block text-sm font-medium text-gray-700 mb-1">Company Phone</label>
-        <input
-          type="text" // Consider type="tel"
-          id="company_phone"
-          name="company_phone"
-          value={formData.company_phone || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          required
-          disabled={isSubmitting || isDeleting}
-        />
-      </div>
-      <div>
-        <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-        {/* Replace with shadcn Select if used */}
-        <select
-          id="gender"
-          name="gender"
-          value={formData.gender || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full"
-          disabled={isSubmitting || isDeleting}
-        >
-          <option value="">Select Gender</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-        <input
-          type="text"
-          id="address"
-          name="address"
-          value={formData.address || ""}
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          // required // Address might be optional
-          disabled={isSubmitting || isDeleting}
-        />
-      </div>
-      <div>
-        <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-        <input
-          type="date"
-          id="date_of_birth"
-          name="date_of_birth"
-          value={getFormattedDateValue(formData.date_of_birth)} // Use helper for value
-          onChange={handleChange}
-          className="border border-gray-300 rounded-md p-2 w-full" // Replace with shadcn Input if used
-          disabled={isSubmitting || isDeleting}
-        />
-        {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
-      </div>
-
-      {/* Use DialogFooter for consistency if this form is in a Dialog */}
-      {/* Example using standard buttons, replace with shadcn Button if used */}
-      <div className="flex justify-between pt-4">
-         {/* Cancel Button */}
-         {onCancel && (
-             <button
-                type="button"
-                onClick={onCancel}
-                className="bg-gray-200 text-gray-800 rounded-md px-4 py-2 hover:bg-gray-300 disabled:opacity-50" // Replace with shadcn Button variant="outline"
-                disabled={isSubmitting || isDeleting}
-             >
-                Cancel
-             </button>
-         )}
-         {/* Delete Button (only in update mode) */}
-         {isUpdateMode && (
-           <button
-             type="button"
-             onClick={handleDelete}
-             className="bg-red-500 text-white rounded-md px-4 py-2 hover:bg-red-700 disabled:opacity-50" // Replace with shadcn Button variant="destructive"
-             disabled={isDeleting || isSubmitting}
-           >
-             {isDeleting ? "Deleting..." : "Delete Profile"}
-           </button>
-         )}
-         {/* Submit Button */}
-         <button
-           type="submit"
-           className="bg-blue-500 text-white rounded-md px-4 py-2 hover:bg-blue-700 disabled:opacity-50" // Replace with shadcn Button variant="default"
-           disabled={isSubmitting || isDeleting || !!dateError}
-         >
-           {isSubmitting
-             ? "Submitting..."
-             : isUpdateMode
-             ? "Update Profile"
-             : "Create Profile"}
-         </button>
-      </div>
-    </form>
+      </form>
+    </Form>
   );
 }

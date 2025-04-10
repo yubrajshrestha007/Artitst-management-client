@@ -1,9 +1,9 @@
-// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/user-form.tsx
-import { User } from "@/types/auth";
-import { useEffect } from "react";
-import { useUsersQuery } from "@/shared/queries/users";
+// /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/user-form-fields.tsx
+"use client";
+
+import { Control } from "react-hook-form";
+import { z } from "zod";
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -18,149 +18,143 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { DialogDescription } from "@/components/ui/dialog"; // Import if needed for Switch description
 
-// Define a Zod schema for form validation
-const userFormSchema = z.object({
-  id: z.string().optional(),
-  email: z.string().email().optional(),
-  is_active: z.boolean(),
-  role: z.enum(["artist", "artist_manager"]),
-});
-
-type UserFormValues = z.infer<typeof userFormSchema>;
-
-interface UserFormProps {
-  onSubmit: (data: Partial<User>) => void;
-  initialData?: Partial<User>;
+// Assuming userSchema is defined elsewhere and imported if needed
+// Or define a specific type for the form values used here
+interface UserFormFieldsProps {
+  control: Control<any>; // Use specific type if available, e.g., Control<UserFormValues>
+  isCreating?: boolean;
+  isUpdating?: boolean; // Useful for readOnly fields
+  disabled?: boolean;
 }
 
-export default function UserForm({ onSubmit, initialData }: UserFormProps) {
-  const { data: usersData } = useUsersQuery();
-  const currentUserRole = usersData?.currentUserRole || "";
-  const isEditMode = !!initialData;
-
-  const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
-    defaultValues: {
-      is_active: false,
-      role: currentUserRole === "artist_manager" ? "artist" : "artist_manager",
-      ...initialData,
-    },
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      form.reset(initialData);
-    }
-  }, [initialData, form]);
-
-  const handleSubmit = (values: UserFormValues) => {
-    const dataToSubmit: Partial<User> = { ...values };
-
-    if (isEditMode) {
-      delete dataToSubmit.email;
-    }
-    onSubmit(dataToSubmit);
-  };
-
+export const UserFormFields = ({
+  control,
+  isCreating,
+  isUpdating,
+  disabled = false,
+}: UserFormFieldsProps) => {
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(handleSubmit)}
-        className="flex flex-col gap-4"
-      >
-        {form.watch("id") && (
+    <div className="space-y-4">
+      {/* Email Field */}
+      <FormField
+        control={control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="user@example.com"
+                {...field}
+                readOnly={isUpdating} // Email typically not editable
+                className={isUpdating ? "bg-gray-100 cursor-not-allowed" : ""}
+                required={isCreating}
+                disabled={disabled}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Password Fields (only on create) */}
+      {isCreating && (
+        <>
           <FormField
-            control={form.control}
-            name="id"
+            control={control}
+            name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Id</FormLabel>
+                <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="text" readOnly {...field} />
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    {...field}
+                    required
+                    disabled={disabled}
+                  />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
-        )}
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input type="email" readOnly {...field} />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="is_active"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <FormControl>
-                <Select
-                  onValueChange={(value) => field.onChange(value === "true")}
-                  defaultValue={field.value.toString()}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select a status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">
-                      <Badge variant="outline" className="text-green-500">
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Active
-                      </Badge>
-                    </SelectItem>
-                    <SelectItem value="false">
-                      <Badge variant="outline" className="text-red-500">
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Inactive
-                      </Badge>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Role</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
+          <FormField
+            control={control}
+            name="confirm_password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm Password</FormLabel>
                 <FormControl>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    {...field}
+                    required
+                    disabled={disabled}
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="artist">Artist</SelectItem>
-                  <SelectItem value="artist_manager">Artist Manager</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit">Submit</Button>
-      </form>
-    </Form>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </>
+      )}
+
+      {/* Role Field */}
+      <FormField
+        control={control}
+        name="role"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Role</FormLabel>
+            <Select
+              onValueChange={field.onChange}
+              value={field.value || ""}
+              disabled={disabled}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="artist_manager">Artist Manager</SelectItem>
+                <SelectItem value="artist">Artist</SelectItem>
+                {/* <SelectItem value="super_admin">Super Admin</SelectItem> */}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Active Status Field */}
+      <FormField
+        control={control}
+        name="is_active"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <FormLabel>Active Status</FormLabel>
+              <DialogDescription>
+                Inactive users cannot log in.
+              </DialogDescription>
+            </div>
+            <FormControl>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                aria-label="Active Status"
+                disabled={disabled}
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+    </div>
   );
-}
+};

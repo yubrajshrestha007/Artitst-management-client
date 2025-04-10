@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { User, ArtistProfile, ManagerProfile } from "@/types/auth"; // Import necessary types
+import { useMemo } from "react"; // Import useMemo
 
 // Define a union type for the items the table can display
 type DataItem = User | ArtistProfile | ManagerProfile;
@@ -37,6 +38,10 @@ interface DataTableProps<T extends DataItem> {
 }
 
 const getNestedValue = (obj: unknown, path: string): unknown => {
+  // Ensure obj is an object before reducing
+  if (typeof obj !== 'object' || obj === null) {
+    return undefined;
+  }
   return path.split('.').reduce((acc, part) => acc && (acc as Record<string, unknown>)[part], obj);
 };
 
@@ -54,19 +59,19 @@ export const DataTable = <T extends DataItem>({
   searchTerm,
 }: DataTableProps<T>) => {
 
-  const canEdit = (item: T): boolean => {
-    // Super Admin can edit anything
+  // --- FIX: Calculate permissions based on props, not per item ---
+  // Use useMemo to calculate these once per render based on props
+  const canEditThisType = useMemo(() => {
     if (currentUserRole === "super_admin") return true;
-    // Artist Manager can edit Artists
     if (currentUserRole === "artist_manager" && itemType === "artist") return true;
-    // Add other specific edit rules if needed
     return false;
-  };
+  }, [currentUserRole, itemType]);
 
-  const canDelete = (item: T): boolean => {
-     // Only Super Admin can delete
-     return currentUserRole === "super_admin";
-  };
+  const canDeleteThisType = useMemo(() => {
+    return currentUserRole === "super_admin";
+  }, [currentUserRole]);
+  // --- END FIX ---
+
 
   const renderCellContent = (item: T, column: ColumnDefinition<T>): React.ReactNode => {
     // Use custom render function if provided
@@ -87,7 +92,12 @@ export const DataTable = <T extends DataItem>({
     }
     if (column.key === "date_of_birth" && value) {
        try {
-           return new Date(value as string).toLocaleDateString();
+           // Ensure value is treated as string or number before passing to Date
+           const dateValue = typeof value === 'string' || typeof value === 'number' ? value : String(value);
+           const date = new Date(dateValue);
+           // Check if date is valid
+           if (isNaN(date.getTime())) return "Invalid Date";
+           return date.toLocaleDateString();
        } catch {
            return "Invalid Date";
        }
@@ -99,7 +109,8 @@ export const DataTable = <T extends DataItem>({
     // Fallback for other types
     if (value === null || typeof value === 'undefined') return "N/A";
     if (typeof value === 'boolean') return value ? "Yes" : "No";
-    if (value instanceof Date) return value.toLocaleString();
+    // Check if it's a valid date object before formatting
+    if (value instanceof Date && !isNaN(value.getTime())) return value.toLocaleString();
 
     return String(value);
   };
@@ -141,28 +152,30 @@ export const DataTable = <T extends DataItem>({
                 ))}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {canEdit(item) && (
+                    {/* --- FIX: Use the calculated boolean constants --- */}
+                    {canEditThisType && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onEdit(item)}
+                        onClick={() => onEdit(item)} // Still pass item to the actual handler
                         title={`Edit ${itemType}`}
-                        disabled={isLoadingEdit || isLoadingDelete} // Disable both during any action
+                        disabled={isLoadingEdit || isLoadingDelete}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     )}
-                    {canDelete(item) && (
+                    {canDeleteThisType && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onDelete(item)}
+                        onClick={() => onDelete(item)} // Still pass item to the actual handler
                         title={`Delete ${itemType}`}
-                        disabled={isLoadingEdit || isLoadingDelete} // Disable both during any action
+                        disabled={isLoadingEdit || isLoadingDelete}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     )}
+                    {/* --- END FIX --- */}
                   </div>
                 </TableCell>
               </TableRow>

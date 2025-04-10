@@ -1,36 +1,24 @@
 // /home/mint/Desktop/ArtistMgntFront/client/app/dashboard/components/artist-profile.tsx
 "use client";
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useCallback, useEffect } from "react";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArtistProfile } from "@/types/auth"; // Assuming ArtistProfile type is here
-import { artistProfileSchema, ArtistProfileFormValues } from "@/schemas/auth"; // Adjust path if needed
+import { ArtistProfile } from "@/types/auth";
+import {
+  artistProfileSchema,
+  ArtistProfileFormValues,
+  // Import default values and formatter if needed, or define locally
+} from "@/schemas/auth"; // Adjust path
 import { useDeleteArtistProfileMutation } from "@/shared/queries/artist-profile";
 import { fetchManagers } from "@/shared/queries/manager-profile";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Loader2 } from "lucide-react";
-import { DialogFooter } from "@/components/ui/dialog"; // Import DialogFooter for layout
+import { Form } from "@/components/ui/form";
+import { ArtistFormFields } from "./artits-form"; // Import the new fields component
+import { ManagerFormFooter } from "./manager-footer"; // Reuse the manager footer component
 
 interface ArtistProfileFormProps {
-  onSubmit: (data: Partial<ArtistProfile>) => Promise<void> | void; // Allow async onSubmit
+  onSubmit: (data: Partial<ArtistProfile>) => Promise<void> | void;
   initialData?: ArtistProfile | null;
   currentUserId?: string | null; // Needed for create
   onCancel?: () => void;
@@ -38,29 +26,17 @@ interface ArtistProfileFormProps {
   isLoading?: boolean; // Loading state from parent create/update mutation
 }
 
-// Default values for the form
+// Default values and formatter can be defined here or imported
 const defaultValues: Partial<ArtistProfileFormValues> = {
-  name: "",
-  date_of_birth: null,
-  gender: "", // Use empty string for default select state
-  address: "",
-  first_release_year: null,
-  no_of_albums_released: 0,
-  manager_id_id: null,
+  name: "", date_of_birth: null, gender: "", address: "",
+  first_release_year: null, no_of_albums_released: 0, manager_id_id: null,
 };
-
-// Helper to format date for input type="date"
 const formatDateForInput = (date: string | Date | null | undefined): string => {
   if (!date) return "";
   try {
-    // Ensure date is valid before formatting
     const d = new Date(date);
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
-  } catch { // FIX: Removed unused '_e' variable binding
-    console.error("Error formatting date for input:", date); // Optional: log the problematic date
-    return ""; // Return empty if date is invalid or formatting fails
-  }
+    return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+  } catch { return ""; }
 };
 
 export default function ArtistProfileForm({
@@ -69,7 +45,7 @@ export default function ArtistProfileForm({
   currentUserId,
   onCancel,
   onDeleteSuccess,
-  isLoading = false, // Default parent loading state
+  isLoading = false,
 }: ArtistProfileFormProps) {
   const queryClient = useQueryClient();
   const isUpdateMode = !!initialData?.id;
@@ -85,12 +61,13 @@ export default function ArtistProfileForm({
       ? {
           ...defaultValues,
           ...initialData,
-          // Ensure numeric fields are numbers or null
+          // Ensure gender is one of the allowed enum values or null
+          gender: ["male", "female", "other"].includes(initialData.gender || "")
+            ? (initialData.gender as "male" | "female" | "other")
+            : null,
           first_release_year: initialData.first_release_year ?? null,
           no_of_albums_released: initialData.no_of_albums_released ?? 0,
-          // Format date for input
           date_of_birth: formatDateForInput(initialData.date_of_birth),
-          // Ensure manager_id_id is string or null
           manager_id_id: initialData.manager_id_id || null,
         }
       : defaultValues,
@@ -98,18 +75,20 @@ export default function ArtistProfileForm({
 
   // Reset form if initialData changes
   useEffect(() => {
-    if (initialData) {
-      form.reset({
-        ...defaultValues,
-        ...initialData,
-        first_release_year: initialData.first_release_year ?? null,
-        no_of_albums_released: initialData.no_of_albums_released ?? 0,
-        date_of_birth: formatDateForInput(initialData.date_of_birth),
-        manager_id_id: initialData.manager_id_id || null,
-      });
-    } else {
-      form.reset(defaultValues);
-    }
+    const resetValues = initialData
+      ? {
+          ...defaultValues, ...initialData,
+          // Ensure gender is one of the allowed enum values or null
+          gender: ["male", "female", "other"].includes(initialData.gender || "")
+            ? (initialData.gender as "male" | "female" | "other")
+            : null,
+          first_release_year: initialData.first_release_year ?? null,
+          no_of_albums_released: initialData.no_of_albums_released ?? 0,
+          date_of_birth: formatDateForInput(initialData.date_of_birth),
+          manager_id_id: initialData.manager_id_id || null,
+        }
+      : defaultValues;
+    form.reset(resetValues);
   }, [initialData, form]);
 
   // Delete Mutation
@@ -117,23 +96,13 @@ export default function ArtistProfileForm({
     onSuccess: () => {
       toast.success("Artist profile deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["artist-profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["artistProfileByUserId"] }); // Invalidate specific user profile queries too
+      queryClient.invalidateQueries({ queryKey: ["artistProfileByUserId"] });
       setIsDeleting(false);
-      onDeleteSuccess?.(); // Call parent callback
+      onDeleteSuccess?.();
     },
-    onError: (error: unknown) => { // Changed 'any' to 'unknown'
-      let message = "Error deleting artist profile";
-      // Add type checking
-      if (error instanceof Error) {
-        message = `Error deleting artist profile: ${error.message}`;
-      } else if (typeof error === 'string') {
-        message = `Error deleting artist profile: ${error}`;
-      }
-      // You might want to check for AxiosError structure if applicable
-      // else if (axios.isAxiosError(error) && error.response?.data?.detail) {
-      //   message = `Error deleting artist profile: ${error.response.data.detail}`;
-      // }
-      toast.error(message);
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Error deleting profile";
+      toast.error(`Delete failed: ${message}`);
       setIsDeleting(false);
     },
   });
@@ -144,293 +113,83 @@ export default function ArtistProfileForm({
       setIsLoadingManagers(true);
       setIsManagerError(false);
       try {
-        const managersResult = await fetchManagers(); // Assuming fetchManagers is correctly implemented
-        if (managersResult && Array.isArray(managersResult)) {
-          setAllManagers(
-            managersResult
-              .map((manager) => ({
-                id: manager.id || "",
-                name: manager.name || "Unnamed Manager",
-              }))
-              .filter((manager) => manager.id)
-          );
-        } else {
-          setAllManagers([]);
-        }
-      } catch (error) {
+        const managersResult = await fetchManagers();
+        setAllManagers(
+          (managersResult || [])
+            .map((m) => ({ id: m.id || "", name: m.name || "Unnamed" }))
+            .filter((m) => m.id)
+        );
+      } catch (error) { // <-- FIX: Use the error variable
+        console.error("Failed to load managers:", error); // Log the error
         setIsManagerError(true);
         toast.error("Error loading managers.");
-        console.error("Manager fetch error:", error);
         setAllManagers([]);
       } finally {
         setIsLoadingManagers(false);
       }
     };
     loadManagers();
-  }, []); // Fetch only once
+  }, []);
 
   // Form Submission Handler
-  const handleFormSubmit = async (values: ArtistProfileFormValues) => {
-    if (isLoading || isDeleting) return; // Prevent submission during other actions
+  const handleFormSubmit: SubmitHandler<ArtistProfileFormValues> = async (values) => {
+    if (isLoading || isDeleting) return;
 
-    // Prepare data: Convert empty strings back to null, ensure numbers are numbers
     const dataToSubmit: Partial<ArtistProfile> = {
       ...values,
       gender: values.gender || null,
       address: values.address || null,
-      date_of_birth: values.date_of_birth || null,
-      // Convert "none" back to null for the backend
+      // Ensure date is formatted correctly or null
+      date_of_birth: values.date_of_birth ? new Date(values.date_of_birth).toISOString().split('T')[0] : null,
       manager_id_id: values.manager_id_id === "none" ? null : values.manager_id_id || null,
-      // Ensure numeric fields are numbers or null
       first_release_year: values.first_release_year === null ? null : Number(values.first_release_year),
       no_of_albums_released: values.no_of_albums_released === null ? 0 : Number(values.no_of_albums_released),
     };
 
     if (isUpdateMode && initialData?.id) {
-      dataToSubmit.id = initialData.id; // Add id for update
-      delete dataToSubmit.user_id; // Don't send user_id on update
+      dataToSubmit.id = initialData.id;
+      delete dataToSubmit.user_id;
     } else if (!isUpdateMode && currentUserId) {
-      dataToSubmit.user_id = currentUserId; // Add user_id for create
-      delete dataToSubmit.id; // Ensure no id on create
+      dataToSubmit.user_id = currentUserId;
+      delete dataToSubmit.id;
     } else if (!isUpdateMode && !currentUserId) {
-        toast.error("Cannot create profile: User ID is missing.");
-        return; // Stop submission if user ID is missing for creation
+      toast.error("Cannot create profile: User ID is missing.");
+      return;
     }
 
-    console.log("Submitting Artist Profile:", dataToSubmit);
-    await onSubmit(dataToSubmit); // Call parent onSubmit
+    await onSubmit(dataToSubmit);
   };
 
   // Delete Handler
-  const handleDelete = useCallback(async () => {
-    const idToDelete = initialData?.id;
-    if (idToDelete && !isDeleting && !isLoading) {
+  const handleDelete = useCallback(() => {
+    if (initialData?.id && !isDeleting && !isLoading) {
       setIsDeleting(true);
-      deleteArtistProfile(idToDelete);
-    } else if (!idToDelete) {
-      toast.error("No profile ID found to delete.");
+      deleteArtistProfile(initialData.id);
     }
   }, [initialData?.id, deleteArtistProfile, isDeleting, isLoading]);
 
-  // Get current manager name for display (only in update mode)
-  const currentManagerName = useMemo(() => {
-    if (!isUpdateMode || !initialData?.manager_id_id || !allManagers.length) return null;
-    const manager = allManagers.find((m) => m.id === initialData.manager_id_id);
-    return manager ? manager.name : "Manager Not Found";
-  }, [isUpdateMode, initialData?.manager_id_id, allManagers]);
+  const isSubmittingCombined = form.formState.isSubmitting || isLoading;
+  const isDisabled = isSubmittingCombined || isDeleting;
+  // Disable submit if managers failed to load and no manager is currently assigned (relevant for create/update)
 
   return (
     <Form {...form}>
-      {/* Add py-4 for padding consistent with other forms */}
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
-        {/* Name */}
-        <FormField
+        <ArtistFormFields
           control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Artist Name" {...field} disabled={isLoading || isDeleting} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          disabled={isDisabled}
+          allManagers={allManagers}
+          isLoadingManagers={isLoadingManagers}
+          isManagerError={isManagerError}
         />
-
-        {/* Date of Birth */}
-        <FormField
-          control={form.control}
-          name="date_of_birth"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Date of Birth</FormLabel>
-              <FormControl>
-                {/* Use field.value ?? '' to handle potential null value */}
-                <Input type="date" {...field} value={field.value ?? ''} disabled={isLoading || isDeleting} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        {/* Reuse the ManagerFormFooter component */}
+        <ManagerFormFooter
+          isUpdateMode={isUpdateMode}
+          isSubmitting={isSubmittingCombined}
+          isDeleting={isDeleting}
+          onCancel={onCancel}
+          onDelete={handleDelete}
         />
-
-        {/* Gender */}
-        <FormField
-          control={form.control}
-          name="gender"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Gender</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                // Use field.value which could be null, map null to "" for Select value prop
-                value={field.value ?? ""}
-                disabled={isLoading || isDeleting}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Gender" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Address */}
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Address</FormLabel>
-              <FormControl>
-                <Input placeholder="123 Music Lane" {...field} value={field.value ?? ''} disabled={isLoading || isDeleting} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* First Release Year */}
-        <FormField
-          control={form.control}
-          name="first_release_year"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>First Release Year</FormLabel>
-              <FormControl>
-                 {/* Handle null for number input */}
-                <Input
-                    type="number"
-                    placeholder="e.g., 2020"
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
-                    min="1900"
-                    max={new Date().getFullYear()}
-                    disabled={isLoading || isDeleting}
-                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* No. of Albums Released */}
-        <FormField
-          control={form.control}
-          name="no_of_albums_released"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>No. of Albums Released</FormLabel>
-              <FormControl>
-                <Input
-                    type="number"
-                    placeholder="e.g., 5"
-                    {...field}
-                    value={field.value ?? 0} // Default to 0 if null/undefined
-                    onChange={e => field.onChange(Number(e.target.value) >= 0 ? Number(e.target.value) : 0)}
-                    min="0"
-                    disabled={isLoading || isDeleting}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Manager Section */}
-        <FormField
-          control={form.control}
-          name="manager_id_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Manager</FormLabel>
-              {isLoadingManagers ? (
-                 <div className="text-sm text-gray-500">Loading managers...</div>
-              ) : isManagerError ? (
-                 <div className="text-sm text-red-500 p-2 border border-red-300 rounded-md bg-red-50">
-                    Error loading managers. Cannot assign manager.
-                 </div>
-              ) : isUpdateMode && currentManagerName ? ( // In update mode, show current manager if exists
-                 <div className="p-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-800">
-                    {currentManagerName}
-                    {/* Add a button to allow changing manager if needed */}
-                    {/* <Button type="button" variant="link" size="sm" onClick={() => form.setValue('manager_id_id', null)}>Change</Button> */}
-                 </div>
-              ) : ( // In create mode, or update mode if no manager assigned, show Select
-                <Select
-                  onValueChange={field.onChange}
-                  // Map null field value to "" for Select value prop to show placeholder
-                  // Map "none" field value to "none" for Select value prop
-                  // Map actual id field value to id for Select value prop
-                  value={field.value === null ? "" : field.value}
-                  disabled={isLoading || isDeleting || isLoadingManagers}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a manager (Optional)" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {/* Use "none" as the value for the explicit "No Manager" option */}
-                    <SelectItem value="none">No Manager</SelectItem>
-                    {allManagers.map((manager) => (
-                      <SelectItem key={manager.id} value={manager.id}>
-                        {manager.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Footer with Buttons */}
-        <DialogFooter className="pt-4">
-          {/* Left side buttons (Cancel/Delete) */}
-          <div className="flex gap-2 mr-auto"> {/* Push left */}
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                disabled={isLoading || isDeleting}
-              >
-                Cancel
-              </Button>
-            )}
-            {isUpdateMode && (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isLoading || isDeleting}
-              >
-                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isDeleting ? "Deleting..." : "Delete Profile"}
-              </Button>
-            )}
-          </div>
-
-          {/* Right side button (Submit) */}
-          <Button
-            type="submit"
-            disabled={isLoading || isDeleting || form.formState.isSubmitting || (isManagerError && !currentManagerName)} // Disable if managers failed and none assigned
-          >
-            {(isLoading || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isUpdateMode ? "Update Profile" : "Create Profile"}
-          </Button>
-        </DialogFooter>
       </form>
     </Form>
   );

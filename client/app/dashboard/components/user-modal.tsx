@@ -4,35 +4,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { User } from "@/types/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { userSchema } from "@/schemas/auth";
+import { userSchema } from "@/schemas/auth"; // Assuming full userSchema is here
 import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Form } from "@/components/ui/form";
 import { useEffect } from "react";
-import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react"; // Import Loader icon
+import { UserFormFields } from "./user-form"; // Import fields component
+import { UserFormFooter } from "./user-footer"; // Import footer component
 
 interface UserModalProps {
   isOpen: boolean;
@@ -41,19 +24,20 @@ interface UserModalProps {
   initialData?: Partial<User>;
   isCreating?: boolean;
   isUpdating?: boolean;
-  isLoading?: boolean; // <-- Add prop for external loading state
-  // type?: "user" | "artist" | "manager"; // <-- Removed unused type prop
+  isLoading?: boolean; // Parent loading state
 }
 
-// Schema remains the same
+// Schema logic remains the same
 const getUserSchema = (isCreating?: boolean) => {
   if (isCreating) {
     return userSchema;
   }
-  // When updating, password is not required and shouldn't be validated unless provided
-  // We omit it here, but the backend should handle partial updates correctly
+  // When updating, omit password validation
   return userSchema.omit({ password: true, confirm_password: true });
 };
+
+// Define the specific form values type based on the schema
+type UserFormValues = z.infer<ReturnType<typeof getUserSchema>>;
 
 export default function UserModal({
   isOpen,
@@ -62,19 +46,18 @@ export default function UserModal({
   initialData,
   isCreating,
   isUpdating,
-  isLoading, // <-- Destructure the new prop
+  isLoading: isParentLoading = false, // Default parent loading state
 }: UserModalProps) {
   const currentSchema = getUserSchema(isCreating);
 
-  const form = useForm<z.infer<typeof currentSchema>>({
+  const form = useForm<UserFormValues>({
     resolver: zodResolver(currentSchema),
-    // Set default values, ensuring role and is_active have fallbacks
     defaultValues: {
       email: "",
       ...(isCreating && { password: "", confirm_password: "" }),
-      role: "artist", // Default role, adjust if needed
+      role: "artist",
       is_active: false,
-      ...initialData, // Spread initialData last to override defaults
+      ...initialData,
     },
   });
 
@@ -83,20 +66,22 @@ export default function UserModal({
     const defaultVals = {
       email: "",
       ...(isCreating && { password: "", confirm_password: "" }),
-      role: "artist", // Ensure default role is consistent
+      role: "artist",
       is_active: false,
-      ...initialData, // Spread initialData to populate the form for editing
+      ...initialData,
     };
-    // Use form.reset to update form values and reset validation state
     form.reset(defaultVals);
-  }, [initialData, isCreating, form]); // Dependencies are correct
+  }, [initialData, isCreating, form]);
 
-  const handleFormSubmit = (values: z.infer<typeof currentSchema>) => {
-    // Prevent submission if the parent component indicates loading
-    if (isLoading) return;
+  const handleFormSubmit = (values: UserFormValues) => {
+    // Prevent submission if parent is loading or form is submitting
+    if (isParentLoading || form.formState.isSubmitting) return;
     console.log("UserModal submitting:", values);
     onSubmit(values);
   };
+
+  // Combine parent loading state with internal form submitting state
+  const isLoadingCombined = isParentLoading || form.formState.isSubmitting;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -111,147 +96,17 @@ export default function UserModal({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
-            {/* Email Field */}
-            <FormField
+            <UserFormFields
               control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="user@example.com"
-                      {...field}
-                      // Email should generally not be editable after creation
-                      readOnly={isUpdating}
-                      className={isUpdating ? "bg-gray-100 cursor-not-allowed" : ""}
-                      // Ensure email is required for creation
-                      required={isCreating}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              isCreating={isCreating}
+              isUpdating={isUpdating}
+              disabled={isLoadingCombined} // Pass combined loading state
             />
-
-            {/* Password Fields (only on create) */}
-            {isCreating && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          {...field}
-                          required // Password is required on creation
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="confirm_password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          {...field}
-                          required // Confirm password is required on creation
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
-            {/* Role Field */}
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  {/* Use Select component for role selection */}
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value || ""} // Ensure value is not null/undefined for Select
-                    disabled={isLoading} // Disable during loading
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="artist_manager">
-                        Artist Manager
-                      </SelectItem>
-                      <SelectItem value="artist">Artist</SelectItem>
-                      {/* Add super_admin if needed, but usually not assigned this way */}
-                      {/* <SelectItem value="super_admin">Super Admin</SelectItem> */}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <UserFormFooter
+              onCancel={onClose}
+              isLoading={isLoadingCombined} // Pass combined loading state
+              isUpdating={isUpdating}
             />
-
-            {/* Active Status Field */}
-            <FormField
-              control={form.control}
-              name="is_active"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Active Status</FormLabel>
-                    <DialogDescription>
-                      Inactive users cannot log in.
-                    </DialogDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      aria-label="Active Status"
-                      disabled={isLoading} // Disable switch while loading
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Footer Buttons */}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={isLoading} // Disable Cancel button during loading
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                // Disable button if form is submitting internally OR if parent indicates loading
-                disabled={isLoading || form.formState.isSubmitting}
-              >
-                {/* Show loader icon when parent indicates loading */}
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isUpdating ? "Update User" : "Create User"}
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

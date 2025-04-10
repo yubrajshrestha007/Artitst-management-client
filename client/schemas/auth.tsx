@@ -59,3 +59,24 @@ export const managerProfileSchema = z.object({
 });
 
 export type ManagerProfileFormValues = z.infer<typeof managerProfileSchema>;
+
+export const managerProfileDefaultValues: Partial<ManagerProfileFormValues> = {
+  name: "",
+  company_name: "",
+  company_email: "",
+  company_phone: "",
+  gender: null,
+  address: null,
+  date_of_birth: null,
+};
+
+// Helper to format date for input type="date"
+export const formatDateForInput = (date: string | Date | null | undefined): string => {
+  if (!date) return "";
+  try {
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
