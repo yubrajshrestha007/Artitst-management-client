@@ -16,7 +16,7 @@ export interface LoginResponse {
 
 export interface User {
   is_active: boolean;
-  id: number;
+  id: string;
   email: string;
   password:string;
   confirm_password:string;
@@ -42,10 +42,10 @@ export interface UseDeleteManagerProfileMutationOptions {
   onSuccess?: () => void;
   onError?: (error: { message: string }) => void;
 }
-export interface UserQueryResponse {
-  users: User[];
-  currentUserRole: string;
-}
+// export interface UserQueryResponse {
+//   users: User[];
+//   currentUserRole: string;
+// }
 export interface UseLoginMutationOptions {
   onSuccess?: (data: LoginResponse) => void;
   onError?: (error: { message: string }) => void;
@@ -106,4 +106,18 @@ export interface Music {
   release_date: string | null;
   artist_name: string;
   created_by_id?: string | null;
+}
+
+export interface PaginatedResponse<T> {
+  count: number;       // Total number of items across all pages
+  next: string | null; // URL for the next page, or null if none
+  previous: string | null; // URL for the previous page, or null if none
+  results: T[];      // Array of items for the current page
+}
+export interface UserQueryResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: User[]; // Changed from 'users' to 'results'
+  currentUserRole: string; // Keep the role information
 }

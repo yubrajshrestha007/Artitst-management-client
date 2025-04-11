@@ -11,8 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// Import Eye icon
-import { Pencil, Trash2, Eye } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"; // Import Dropdown components
+import { Pencil, Trash2, Eye, MoreHorizontal } from "lucide-react"; // Import MoreHorizontal
 
 // Format date for display in the table
 const formatDateForDisplay = (dateString: string | null | undefined) => {
@@ -31,7 +38,7 @@ interface MusicTableProps {
   musicList: Music[];
   onEdit: (music: Music) => void;
   onDelete: (music: Music) => void;
-  onView?: (music: Music) => void; // <<< ADDED: Optional handler for viewing details
+  onView?: (music: Music) => void;
   isLoadingEdit: boolean;
   isLoadingDelete: boolean;
 }
@@ -40,7 +47,7 @@ export const MusicTable = ({
   musicList,
   onEdit,
   onDelete,
-  onView, // <<< ADDED: Destructure onView
+  onView,
   isLoadingEdit,
   isLoadingDelete,
 }: MusicTableProps) => {
@@ -74,40 +81,53 @@ export const MusicTable = ({
                 <TableCell>{music.genre ? music.genre.charAt(0).toUpperCase() + music.genre.slice(1) : 'N/A'}</TableCell>
                 <TableCell>{formatDateForDisplay(music.release_date)}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    {/* <<< ADDED: View Button >>> */}
-                    {onView && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onView(music)} // Call onView handler
-                        title="View Music Details"
-                        disabled={isActionLoading} // Disable during other actions
-                      >
-                        <Eye className="h-4 w-4 text-blue-500" />
+                  {/* --- MODIFIED ACTIONS CELL --- */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionLoading}>
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                    )}
-                    {/* --- Edit Button --- */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEdit(music)}
-                      title="Edit Music"
-                      disabled={isActionLoading} // Use combined loading state
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {/* --- Delete Button --- */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(music)}
-                      title="Delete Music"
-                      disabled={isActionLoading} // Use combined loading state
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+
+                      {/* View Action */}
+                      {onView && (
+                        <DropdownMenuItem
+                          onClick={() => onView(music)}
+                          disabled={isActionLoading}
+                          className="cursor-pointer"
+                        >
+                          <Eye className="mr-2 h-4 w-4 text-blue-500" />
+                          View Details
+                        </DropdownMenuItem>
+                      )}
+
+                      {/* Edit Action */}
+                      <DropdownMenuItem
+                        onClick={() => onEdit(music)}
+                        disabled={isActionLoading}
+                        className="cursor-pointer"
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit Music
+                      </DropdownMenuItem>
+
+                      {/* Delete Action */}
+                      <DropdownMenuItem
+                        onClick={() => onDelete(music)}
+                        disabled={isActionLoading}
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Music
+                      </DropdownMenuItem>
+
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {/* --- END MODIFIED ACTIONS CELL --- */}
                 </TableCell>
               </TableRow>
             ))
