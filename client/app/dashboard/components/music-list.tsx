@@ -13,10 +13,12 @@ import { Music } from "@/types/auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { MusicTable } from "./music-table";
+// --- MODIFIED IMPORT ---
+import ManagementTableComponent from "./management-table"; // Import the default export and give it an alias
 import { MusicCreateUpdateModal } from "./music-create-update"; // Corrected import path
 import { MusicDeleteConfirmationModal } from "./music-delete"; // Corrected import path
 import { ItemDetailModal } from "./item-detail-modal"; // Import the detail modal
+import { useAuth } from "@/hooks/auth"; // <<< Import useAuth to get role
 
 // --- Define ApiError interface and type guard here or import ---
 interface ApiError {
@@ -60,6 +62,9 @@ const getErrorDetailsForLog = (error: unknown): unknown => {
 }
 
 const MusicList = () => {
+  // --- Get Role ---
+  const { role: currentUserRole } = useAuth(); // Get role using useAuth
+
   // --- Queries ---
   const { data: musicList, isLoading: isMusicListLoading, refetch: refetchMusic } = useMusicListQuery();
   const { data: profile, isLoading: isProfileLoading } = useMyArtistProfileQuery(true);
@@ -198,8 +203,17 @@ const MusicList = () => {
   };
 
   const handleOpenModalForCreate = () => {
-    setSelectedMusic(null); setIsUpdatingMode(false);
-    resetFormData(); setIsModalOpen(true);
+    console.log("[MusicList] handleOpenModalForCreate called."); // Keep log for debugging
+    setSelectedMusic(null);
+    setIsUpdatingMode(false);
+    try {
+      resetFormData();
+      console.log("[MusicList] resetFormData completed."); // Keep log
+    } catch (error) {
+      console.error("[MusicList] Error during resetFormData:", error); // Keep log
+    }
+    console.log("[MusicList] Setting isModalOpen to true."); // Keep log
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -243,24 +257,20 @@ const MusicList = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">My Music</h2>
-        <Button onClick={handleOpenModalForCreate} disabled={!profile?.id || isCreating || isUpdatingMutation}>
-          Create Music
-        </Button>
-      </div>
-
-      {/* Render the Music Table */}
-      <MusicTable
-        musicList={myMusicList}
-        onEdit={handleOpenModalForEdit}
-        onDelete={handleDeleteRequest}
-        onView={handleViewDetails} // <<< PASS THE HANDLER HERE
-        isLoadingEdit={isUpdatingMutation}
-        isLoadingDelete={isDeleting}
+      {/* --- Render the Management Table Component for Music --- */}
+      <ManagementTableComponent
+        type="music"
+        currentUserRole={currentUserRole || ""} // Pass the role
+        musicData={myMusicList} // Pass music data
+        onMusicEdit={handleOpenModalForEdit} // Pass music-specific handlers
+        onMusicDelete={handleDeleteRequest}
+        onMusicView={handleViewDetails}
+        onMusicCreate={handleOpenModalForCreate} // Pass the handler to open the modal
+        isLoadingMusicEdit={isUpdatingMutation} // Pass music-specific loading states
+        isLoadingMusicDelete={isDeleting}
       />
 
-      {/* Render the Create/Update Modal */}
+      {/* Render the Create/Update Modal (Music specific) */}
       <MusicCreateUpdateModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -272,7 +282,7 @@ const MusicList = () => {
         isUpdating={isUpdatingMode}
       />
 
-      {/* Render the Delete Confirmation Modal */}
+      {/* Render the Delete Confirmation Modal (Music specific) */}
       <MusicDeleteConfirmationModal
         isOpen={isDeleteDialogOpen}
         onClose={cancelDeleteMusic}
@@ -281,7 +291,7 @@ const MusicList = () => {
         musicToDelete={musicToDelete}
       />
 
-      {/* Detail View Modal */}
+      {/* Detail View Modal (Common, type is passed) */}
       <ItemDetailModal
         isOpen={isDetailModalOpen}
         onClose={handleCloseDetailModal}
